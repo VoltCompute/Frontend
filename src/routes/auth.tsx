@@ -236,7 +236,7 @@ function AuthPage() {
                   onClick={() => { setMode(mode === "signin" ? "signup" : "signin"); setError(null); }}
                   className="text-foreground font-medium hover:underline"
                 >
-                  {mode === "signin" ? "Créer un compte enseignant" : "Se connecter"}
+                  {mode === "signin" ? "Créer un compte" : "Se connecter"}
                 </button>
               </p>
               <Link
