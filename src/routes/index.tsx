@@ -580,22 +580,32 @@ function LandingPage() {
         function TestimonialsCarousel() {
           const [active, setActive] = useState(0);
           const [fading, setFading] = useState(false);
+          const timeoutRef = useRef<number | null>(null);
 
           useEffect(() => {
-            const id = setInterval(() => {
+            const id = window.setInterval(() => {
               setFading(true);
-              setTimeout(() => {
+              if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
+              timeoutRef.current = window.setTimeout(() => {
                 setActive((v) => (v + 1) % TESTIMONIALS.length);
                 setFading(false);
               }, 350);
             }, 4000);
-            return () => clearInterval(id);
+
+            return () => {
+              window.clearInterval(id);
+              if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
+            };
           }, []);
 
           const go = (i: number) => {
             if (i === active) return;
             setFading(true);
-            setTimeout(() => { setActive(i); setFading(false); }, 350);
+            if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
+            timeoutRef.current = window.setTimeout(() => {
+              setActive(i);
+              setFading(false);
+            }, 350);
           };
 
           const t = TESTIMONIALS[active];
