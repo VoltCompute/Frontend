@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { Zap, Mail, Lock, User as UserIcon, Loader2 } from "lucide-react";
+import { Zap, Mail, Lock, User as UserIcon, Loader2, ArrowLeft, Check, Server, Shield, Wallet, BarChart3 } from "lucide-react";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -41,112 +41,215 @@ function AuthPage() {
     setTimeout(() => {
       setLoading(false);
       localStorage.setItem("auth_token", "demo");
-      navigate({ to: "/" });
+      navigate({ to: "/marketplace" });
     }, 800);
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-6 relative overflow-hidden">
+    <div className="min-h-screen bg-background text-foreground flex relative overflow-hidden">
+      {/* Background blobs */}
       <div className="pointer-events-none absolute inset-0 -z-10">
         <div className="absolute -top-40 -left-40 size-[40rem] rounded-full bg-primary/15 blur-[120px]" />
         <div className="absolute -bottom-40 -right-40 size-[40rem] rounded-full bg-secondary/15 blur-[120px]" />
       </div>
 
-      <div className="w-full max-w-md">
-        <Link to="/auth" className="flex items-center gap-3 justify-center mb-8">
-          <div className="size-11 rounded-lg premium-gradient grid place-items-center shadow-lg">
-            <Zap className="size-5 text-white" strokeWidth={2.5} />
+      {/* Left Panel - Product Info */}
+      <div className="hidden lg:flex lg:w-1/2 flex-col justify-between p-12 xl:p-16 bg-background border-r border-border">
+        <Link to="/" className="flex items-center gap-3">
+          <div className="size-12 rounded-lg premium-gradient grid place-items-center shadow-lg">
+            <Zap className="size-6 text-white" strokeWidth={2.5} />
           </div>
-          <div className="leading-tight text-center">
-            <div className="font-bold text-xl tracking-tight">VoltCompute</div>
-            <div className="text-[11px] text-muted-foreground font-mono">Calcul décentralisé</div>
+          <div className="leading-tight">
+            <div className="font-bold text-2xl tracking-tight">VoltCompute</div>
+            <div className="text-xs text-muted-foreground font-mono">Calcul décentralisé</div>
           </div>
         </Link>
 
-        <div className="rounded-2xl border border-border bg-surface/80 backdrop-blur p-8 shadow-2xl">
-          <div className="flex gap-1 p-1 rounded-lg bg-accent/60 mb-6">
-            {(["signin", "signup"] as const).map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => { setMode(m); setError(null); }}
-                className={`flex-1 py-2 rounded-md text-sm font-medium transition ${
-                  mode === m ? "bg-background text-foreground shadow" : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {m === "signin" ? "Connexion" : "Inscription"}
-              </button>
-            ))}
+        <div className="flex-1 flex flex-col justify-center">
+          <h1 className="text-4xl xl:text-6xl font-bold tracking-tight mb-8 mt-6 leading-[1.1] uppercase">
+            Louez ou monétisez
+            <br />
+            <span className="premium-gradient-text">de la puissance GPU/CPU</span>
+          </h1>
+
+          {/* Dashboard Image */}
+          <div className="rounded-xl border border-border bg-surface p-4 mb-8 shadow-lg overflow-hidden">
+            <img 
+              src="/screenshot-marketplace.png" 
+              alt="Dashboard VoltCompute" 
+              className="w-full h-auto rounded-lg"
+            />
           </div>
 
-          <h1 className="text-2xl font-bold tracking-tight mb-1">
-            {mode === "signin" ? "Heureux de vous revoir" : "Créer un compte"}
-          </h1>
-          <p className="text-sm text-muted-foreground mb-6">
-            {mode === "signin" ? "Connectez-vous à votre tableau de bord." : "Rejoignez le réseau VoltCompute."}
-          </p>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {mode === "signup" && (
-              <div className="grid grid-cols-2 gap-3">
-                <Field icon={UserIcon} placeholder="Prénom" value={form.first_name} onChange={(v) => setForm({ ...form, first_name: v })} />
-                <Field icon={UserIcon} placeholder="Nom" value={form.last_name} onChange={(v) => setForm({ ...form, last_name: v })} />
+          {/* Features */}
+          <div className="space-y-3">
+            {[
+              { icon: Server, title: "Accès aux nodes GPU/CPU disponibles sur le réseau" },
+              { icon: Wallet, title: "Paiement instantané en Satoshis via Lightning" },
+              { icon: Shield, title: "Environnement sécurisé avec conteneurs Docker isolés" },
+              { icon: BarChart3, title: "Monitoring en temps réel avec console live" },
+            ].map((feature, i) => (
+              <div key={i} className="flex gap-3 items-center">
+                <div className="size-8 rounded-lg grid place-items-center shrink-0">
+                  <feature.icon className="size-4 text-primary" />
+                </div>
+                <div>
+                  <div className="font-semibold text-sm">{feature.title}</div>
+                </div>
               </div>
-            )}
-            <Field icon={Mail} type="email" placeholder="vous@example.com" value={form.email} onChange={(v) => setForm({ ...form, email: v })} />
-            <Field icon={Lock} type="password" placeholder="Mot de passe" value={form.password} onChange={(v) => setForm({ ...form, password: v })} />
+            ))}
+          </div>
+        </div>
 
-            {error && <p className="text-sm text-destructive">{error}</p>}
+        {/* <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Check className="size-4 text-success" />
+          <span>Réseau actif — 4 250 nodes en ligne</span>
+        </div> */}
+      </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full premium-gradient text-white font-semibold rounded-lg py-3 flex items-center justify-center gap-2 shadow-lg hover:opacity-95 transition disabled:opacity-60"
-            >
-              {loading && <Loader2 className="size-4 animate-spin" />}
-              {mode === "signin" ? "Se connecter" : "Créer mon compte"}
-            </button>
-          </form>
+      {/* Right Panel - Auth Form */}
+      <div className="flex-1 flex items-center justify-center p-8 lg:p-12">
+        <div className="w-full max-w-md">
+          {/* Mobile Logo */}
+          <Link to="/auth" className="flex items-center gap-3 justify-center mb-8 lg:hidden">
+            <div className="size-11 rounded-lg premium-gradient grid place-items-center shadow-lg">
+              <Zap className="size-5 text-white" strokeWidth={2.5} />
+            </div>
+            <div className="leading-tight text-center">
+              <div className="font-bold text-xl tracking-tight">VoltCompute</div>
+              <div className="text-[11px] text-muted-foreground font-mono">Calcul décentralisé</div>
+            </div>
+          </Link>
 
-          <p className="text-xs text-muted-foreground text-center mt-6">
-            {mode === "signin" ? "Pas encore de compte ? " : "Déjà inscrit ? "}
-            <button
-              type="button"
-              onClick={() => { setMode(mode === "signin" ? "signup" : "signin"); setError(null); }}
-              className="text-foreground font-medium hover:underline"
-            >
-              {mode === "signin" ? "Créer un compte" : "Se connecter"}
-            </button>
-          </p>
+          <div className="rounded-2xl border border-border bg-surface/80 backdrop-blur p-8 shadow-2xl">
+            <div className="text-center mb-8">
+              <h1 className="text-2xl font-bold tracking-tight mb-1">Bienvenue</h1>
+              <p className="text-sm text-muted-foreground">Créez votre compte ou connectez-vous pour continuer</p>
+            </div>
+
+            <div className="flex rounded-lg p-1 mb-6 border border-border bg-card">
+              {(["signin", "signup"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => { setMode(m); setError(null); }}
+                  className={`flex-1 py-2 px-4 text-sm font-medium text-center rounded-md transition-all ${
+                    mode === m 
+                      ? "bg-primary text-primary-foreground shadow-sm" 
+                      : "text-muted-foreground hover:bg-muted-foreground/10"
+                  }`}
+                >
+                  {m === "signin" ? "Connexion" : "Inscription"}
+                </button>
+              ))}
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {mode === "signup" && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="first_name" className="block text-xs font-semibold uppercase tracking-wider text-foreground mb-2">PRÉNOM</label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <UserIcon className="size-4 text-muted-foreground" />
+                      </div>
+                      <input
+                        id="first_name"
+                        type="text"
+                        value={form.first_name}
+                        onChange={(e) => setForm({ ...form, first_name: e.target.value })}
+                        placeholder="Prénom"
+                        className="w-full h-11 pl-10 pr-3 rounded-lg bg-input border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label htmlFor="last_name" className="block text-xs font-semibold uppercase tracking-wider text-foreground mb-2">NOM</label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <UserIcon className="size-4 text-muted-foreground" />
+                      </div>
+                      <input
+                        id="last_name"
+                        type="text"
+                        value={form.last_name}
+                        onChange={(e) => setForm({ ...form, last_name: e.target.value })}
+                        placeholder="Nom"
+                        className="w-full h-11 pl-10 pr-3 rounded-lg bg-input border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label htmlFor="email" className="block text-xs font-semibold uppercase tracking-wider text-foreground mb-2">ADRESSE E-MAIL</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Mail className="size-4 text-muted-foreground" />
+                  </div>
+                  <input
+                    id="email"
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    placeholder="vous@example.com"
+                    className="w-full h-11 pl-10 pr-3 rounded-lg bg-input border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="password" className="block text-xs font-semibold uppercase tracking-wider text-foreground mb-2">MOT DE PASSE</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Lock className="size-4 text-muted-foreground" />
+                  </div>
+                  <input
+                    id="password"
+                    type="password"
+                    value={form.password}
+                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                    placeholder="••••••••"
+                    className="w-full h-11 pl-10 pr-3 rounded-lg bg-input border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition"
+                  />
+                </div>
+              </div>
+
+              {error && <p className="text-sm text-destructive">{error}</p>}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full premium-gradient text-white font-semibold rounded-lg py-3 flex items-center justify-center gap-2 shadow-lg hover:opacity-95 transition disabled:opacity-60"
+              >
+                {loading && <Loader2 className="size-4 animate-spin" />}
+                Continuer vers votre espace →
+              </button>
+            </form>
+
+            <div className="text-center mt-6 space-y-2">
+              <p className="text-sm text-muted-foreground">
+                {mode === "signin" ? "Pas encore de compte ? " : "Déjà inscrit ? "}
+                <button
+                  type="button"
+                  onClick={() => { setMode(mode === "signin" ? "signup" : "signin"); setError(null); }}
+                  className="text-foreground font-medium hover:underline"
+                >
+                  {mode === "signin" ? "Créer un compte enseignant" : "Se connecter"}
+                </button>
+              </p>
+              <Link
+                to="/"
+                className="text-sm text-muted-foreground hover:text-foreground transition inline-flex items-center gap-1.5"
+              >
+                <ArrowLeft className="size-4" />
+                Retour à l'accueil
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-function Field({
-  icon: Icon,
-  type = "text",
-  placeholder,
-  value,
-  onChange,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  type?: string;
-  placeholder: string;
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <div className="relative">
-      <Icon className="size-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="w-full h-11 pl-10 pr-3 rounded-lg bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition"
-      />
     </div>
   );
 }

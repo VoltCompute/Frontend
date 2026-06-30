@@ -4,7 +4,7 @@ import { type ReactNode, useState, useRef, useEffect } from "react";
 import { useTheme } from "@/lib/theme";
 
 const nav = [
-  { to: "/", label: "Marketplace", icon: Store },
+  { to: "/marketplace", label: "Marketplace", icon: Store },
   { to: "/execution", label: "Exécution", icon: Zap },
   { to: "/machines", label: "Mes Machines", icon: Cpu },
   { to: "/wallet", label: "Portefeuille", icon: Wallet },
@@ -58,7 +58,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
         <nav className="px-3 flex-1 space-y-1">
           {nav.map(({ to, label, icon: Icon }) => {
-            const active = to === "/" ? path === "/" : path.startsWith(to);
+            const active = path.startsWith(to);
             return (
               <Link
                 key={to}

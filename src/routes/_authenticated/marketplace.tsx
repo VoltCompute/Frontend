@@ -3,7 +3,7 @@ import { useState, useMemo } from "react";
 import { Search, X, Server, ChevronDown, BadgeCheck, Cpu } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 
-export const Route = createFileRoute("/_authenticated/")({
+export const Route = createFileRoute("/_authenticated/marketplace")({
   head: () => ({
     meta: [
       { title: "Marketplace — VoltCompute" },
