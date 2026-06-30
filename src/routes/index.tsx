@@ -734,7 +734,7 @@ function LandingPage() {
             </p>
             <div className="flex items-center gap-2">
               {[Github, ExternalLink, ExternalLink].map((Icon, i) => (
-                <a key={i} href="#" className="size-8 grid place-items-center rounded-full hover:bg-accent text-muted-foreground hover:text-foreground transition">
+                <a key={i} href="#" onClick={(e) => e.preventDefault()} className="size-8 grid place-items-center rounded-full hover:bg-accent text-muted-foreground hover:text-foreground transition">
                   <Icon className="size-4" />
                 </a>
               ))}
