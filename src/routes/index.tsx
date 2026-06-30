@@ -613,7 +613,7 @@ function LandingPage() {
           return (
             <div className="max-w-2xl mx-auto px-6 text-center">
               <div
-                className="card-surface p-8 sm:p-10 transition-all duration-350"
+                className="card-surface p-8 sm:p-10 transition-all duration-[350ms]"
                 style={{ opacity: fading ? 0 : 1, transform: fading ? "translateY(10px)" : "translateY(0)" }}
               >
                 <div className="flex justify-center gap-1 mb-6">
