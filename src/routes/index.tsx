@@ -625,7 +625,7 @@ function LandingPage() {
                   "{t.quote}"
                 </p>
                 <div className="flex items-center justify-center gap-3">
-                  <div className={`size-10 rounded-full bg-linear-to-br ${t.from} ${t.to} grid place-items-center text-white text-sm font-bold shrink-0`}>
+                  <div className={`size-10 rounded-full bg-gradient-to-br ${t.from} ${t.to} grid place-items-center text-white text-sm font-bold shrink-0`}>
                     {t.initials}
                   </div>
                   <div className="text-left">
