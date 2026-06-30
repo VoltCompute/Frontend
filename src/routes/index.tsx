@@ -335,7 +335,12 @@ function LandingPage() {
             </button>
           </div>
 
-          <button onClick={() => setMenuOpen((v) => !v)} className="md:hidden size-9 grid place-items-center rounded-lg hover:bg-accent transition">
+          <button
+            onClick={() => setMenuOpen((v) => !v)}
+            aria-label={menuOpen ? "Fermer le menu" : "Ouvrir le menu"}
+            aria-expanded={menuOpen}
+            className="md:hidden size-9 grid place-items-center rounded-lg hover:bg-accent transition"
+          >
             {menuOpen ? <X className="size-5" /> : <Menu className="size-5" />}
           </button>
         </div>
