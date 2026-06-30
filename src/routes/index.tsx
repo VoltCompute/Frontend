@@ -720,7 +720,7 @@ function LandingPage() {
                 <ul className="space-y-3">
                   {col.links.map((l) => (
                     <li key={l}>
-                      <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">{l}</a>
+                      <a href="#" onClick={(e) => e.preventDefault()} className="text-sm text-muted-foreground hover:text-foreground transition-colors">{l}</a>
                     </li>
                   ))}
                 </ul>
