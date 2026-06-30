@@ -1,6 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Server, Plus, Pencil, Trash2, ChevronRight, CloudOff, Check, X, Loader2 } from "lucide-react";
+import {
+  Server,
+  Plus,
+  Pencil,
+  Trash2,
+  ChevronRight,
+  CloudOff,
+  Check,
+  X,
+  Loader2,
+} from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { toast } from "sonner";
 
@@ -8,7 +18,10 @@ export const Route = createFileRoute("/_authenticated/machines")({
   head: () => ({
     meta: [
       { title: "Mes Machines — VoltCompute" },
-      { name: "description", content: "Gérez vos rigs de calcul connectés au réseau VoltCompute et suivez vos revenus." },
+      {
+        name: "description",
+        content: "Gérez vos rigs de calcul connectés au réseau VoltCompute et suivez vos revenus.",
+      },
     ],
   }),
   component: MachinesPage,
@@ -26,9 +39,32 @@ type Machine = {
 };
 
 const INITIAL_MACHINES: Machine[] = [
-  { id: "1", name: "Rig-Alpha-01", spec: "RTX 4090 · 64GB RAM · Ubuntu 22.04", online: true, rate: 12, gain: "+340 Sats", load: 72, featured: true },
-  { id: "2", name: "Cluster-West-Beta", spec: "Tesla A100 · 128GB RAM · Ubuntu 22.04", online: true, rate: 8, gain: "+1 200 Sats" },
-  { id: "3", name: "Home-Worker-03", spec: "GTX 1080ti · 16GB RAM · Windows 11", online: false, rate: 3, gain: "—" },
+  {
+    id: "1",
+    name: "Rig-Alpha-01",
+    spec: "RTX 4090 · 64GB RAM · Ubuntu 22.04",
+    online: true,
+    rate: 12,
+    gain: "+340 Sats",
+    load: 72,
+    featured: true,
+  },
+  {
+    id: "2",
+    name: "Cluster-West-Beta",
+    spec: "Tesla A100 · 128GB RAM · Ubuntu 22.04",
+    online: true,
+    rate: 8,
+    gain: "+1 200 Sats",
+  },
+  {
+    id: "3",
+    name: "Home-Worker-03",
+    spec: "GTX 1080ti · 16GB RAM · Windows 11",
+    online: false,
+    rate: 3,
+    gain: "—",
+  },
 ];
 
 const EMPTY_FORM = { name: "", gpu: "", ram: "", os: "", rate: "" };
@@ -53,8 +89,11 @@ function MachinesPage() {
   }
 
   function confirmEdit(id: string) {
-    if (!editName.trim()) { toast.error("Le nom ne peut pas être vide."); return; }
-    setMachines((prev) => prev.map((m) => m.id === id ? { ...m, name: editName.trim() } : m));
+    if (!editName.trim()) {
+      toast.error("Le nom ne peut pas être vide.");
+      return;
+    }
+    setMachines((prev) => prev.map((m) => (m.id === id ? { ...m, name: editName.trim() } : m)));
     setEditingId(null);
     toast.success("Machine mise à jour.");
   }
@@ -106,7 +145,12 @@ function MachinesPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
         <Metric label="Revenus Totaux" value="128 450" sub="Sats" tone="primary" />
         <Metric label="Uptime Réseau" value="99.98%" sub="Derniers 30j" />
-        <Metric label="Machines Actives" value={String(machines.filter((m) => m.online).length)} sub={`/ ${machines.length} Total`} tone="secondary" />
+        <Metric
+          label="Machines Actives"
+          value={String(machines.filter((m) => m.online).length)}
+          sub={`/ ${machines.length} Total`}
+          tone="secondary"
+        />
       </div>
 
       <div className="space-y-4">
@@ -123,12 +167,25 @@ function MachinesPage() {
                     <input
                       value={editName}
                       onChange={(e) => setEditName(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter") confirmEdit(featured.id); if (e.key === "Escape") setEditingId(null); }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") confirmEdit(featured.id);
+                        if (e.key === "Escape") setEditingId(null);
+                      }}
                       className="bg-input border border-primary rounded-md px-3 py-1.5 text-lg font-bold focus:outline-none focus:ring-2 focus:ring-primary/40"
                       autoFocus
                     />
-                    <button onClick={() => confirmEdit(featured.id)} className="text-success hover:text-success/80"><Check className="size-5" /></button>
-                    <button onClick={() => setEditingId(null)} className="text-muted-foreground hover:text-foreground"><X className="size-5" /></button>
+                    <button
+                      onClick={() => confirmEdit(featured.id)}
+                      className="text-success hover:text-success/80"
+                    >
+                      <Check className="size-5" />
+                    </button>
+                    <button
+                      onClick={() => setEditingId(null)}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="size-5" />
+                    </button>
                   </div>
                 ) : (
                   <div className="flex items-center gap-3 flex-wrap">
@@ -177,9 +234,16 @@ function MachinesPage() {
         )}
 
         {rest.map((m) => (
-          <div key={m.id} className="w-full text-left card-surface p-5 flex items-center gap-4 hover:border-primary/40 transition">
+          <div
+            key={m.id}
+            className="w-full text-left card-surface p-5 flex items-center gap-4 hover:border-primary/40 transition"
+          >
             <div className="size-14 rounded-lg border border-border grid place-items-center bg-surface-2">
-              {!m.online ? <CloudOff className="size-6 text-muted-foreground" /> : <Server className="size-6" />}
+              {!m.online ? (
+                <CloudOff className="size-6 text-muted-foreground" />
+              ) : (
+                <Server className="size-6" />
+              )}
             </div>
             <div className="flex-1 min-w-0">
               {editingId === m.id ? (
@@ -187,29 +251,58 @@ function MachinesPage() {
                   <input
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") confirmEdit(m.id); if (e.key === "Escape") setEditingId(null); }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") confirmEdit(m.id);
+                      if (e.key === "Escape") setEditingId(null);
+                    }}
                     className="bg-input border border-primary rounded-md px-3 py-1.5 font-bold focus:outline-none focus:ring-2 focus:ring-primary/40"
                     autoFocus
                   />
-                  <button onClick={() => confirmEdit(m.id)} className="text-success hover:text-success/80"><Check className="size-4" /></button>
-                  <button onClick={() => setEditingId(null)} className="text-muted-foreground hover:text-foreground"><X className="size-4" /></button>
+                  <button
+                    onClick={() => confirmEdit(m.id)}
+                    className="text-success hover:text-success/80"
+                  >
+                    <Check className="size-4" />
+                  </button>
+                  <button
+                    onClick={() => setEditingId(null)}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="size-4" />
+                  </button>
                 </div>
               ) : (
                 <>
-                  <div className={`font-bold ${!m.online ? "text-muted-foreground" : ""}`}>{m.name}</div>
+                  <div className={`font-bold ${!m.online ? "text-muted-foreground" : ""}`}>
+                    {m.name}
+                  </div>
                   <div className="text-sm text-muted-foreground truncate">{m.spec}</div>
                 </>
               )}
             </div>
-            {m.online
-              ? <div className="text-right"><div className="text-xs text-muted-foreground">Dernier gain</div><div className="font-bold text-success">{m.gain}</div></div>
-              : <span className="px-3 py-1.5 rounded-md bg-destructive/15 text-destructive text-xs font-semibold">Hors ligne</span>
-            }
+            {m.online ? (
+              <div className="text-right">
+                <div className="text-xs text-muted-foreground">Dernier gain</div>
+                <div className="font-bold text-success">{m.gain}</div>
+              </div>
+            ) : (
+              <span className="px-3 py-1.5 rounded-md bg-destructive/15 text-destructive text-xs font-semibold">
+                Hors ligne
+              </span>
+            )}
             <div className="flex items-center gap-1 ml-2">
-              <button onClick={() => startEdit(m)} className="p-2 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition" title="Modifier">
+              <button
+                onClick={() => startEdit(m)}
+                className="p-2 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition"
+                title="Modifier"
+              >
                 <Pencil className="size-4" />
               </button>
-              <button onClick={() => handleDelete(m.id)} className="p-2 rounded-md hover:bg-destructive/15 text-muted-foreground hover:text-destructive transition" title="Supprimer">
+              <button
+                onClick={() => handleDelete(m.id)}
+                className="p-2 rounded-md hover:bg-destructive/15 text-muted-foreground hover:text-destructive transition"
+                title="Supprimer"
+              >
                 <Trash2 className="size-4" />
               </button>
               <ChevronRight className="size-5 text-muted-foreground ml-1" />
@@ -220,7 +313,9 @@ function MachinesPage() {
         {machines.length === 0 && (
           <div className="text-center py-16 text-muted-foreground text-sm">
             Aucune machine connectée.{" "}
-            <button onClick={() => setShowAddModal(true)} className="text-primary hover:underline">Ajouter une machine</button>
+            <button onClick={() => setShowAddModal(true)} className="text-primary hover:underline">
+              Ajouter une machine
+            </button>
           </div>
         )}
       </div>
@@ -228,11 +323,17 @@ function MachinesPage() {
       {/* Modal ajout machine */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowAddModal(false)} />
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowAddModal(false)}
+          />
           <div className="relative w-full max-w-md rounded-2xl border border-border bg-surface shadow-2xl p-7">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold">Ajouter une machine</h2>
-              <button onClick={() => setShowAddModal(false)} className="text-muted-foreground hover:text-foreground">
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="text-muted-foreground hover:text-foreground"
+              >
                 <X className="size-5" />
               </button>
             </div>
@@ -307,7 +408,13 @@ function MachinesPage() {
                   disabled={adding}
                   className="flex-1 premium-gradient text-white font-semibold rounded-lg py-3 flex items-center justify-center gap-2 shadow-lg hover:opacity-95 disabled:opacity-60"
                 >
-                  {adding ? <><Loader2 className="size-4 animate-spin" /> Ajout...</> : "Ajouter la machine"}
+                  {adding ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" /> Ajout...
+                    </>
+                  ) : (
+                    "Ajouter la machine"
+                  )}
                 </button>
               </div>
             </form>
@@ -318,7 +425,17 @@ function MachinesPage() {
   );
 }
 
-function Metric({ label, value, sub, tone }: { label: string; value: string; sub: string; tone?: "primary" | "secondary" }) {
+function Metric({
+  label,
+  value,
+  sub,
+  tone,
+}: {
+  label: string;
+  value: string;
+  sub: string;
+  tone?: "primary" | "secondary";
+}) {
   const color = tone === "primary" ? "text-primary" : tone === "secondary" ? "text-secondary" : "";
   return (
     <div className="card-surface p-5">
@@ -331,5 +448,9 @@ function Metric({ label, value, sub, tone }: { label: string; value: string; sub
   );
 }
 function Tag({ children }: { children: React.ReactNode }) {
-  return <span className="px-2 py-0.5 rounded-md bg-surface-3 border border-border text-xs font-mono">{children}</span>;
+  return (
+    <span className="px-2 py-0.5 rounded-md bg-surface-3 border border-border text-xs font-mono">
+      {children}
+    </span>
+  );
 }
