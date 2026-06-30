@@ -645,6 +645,9 @@ function LandingPage() {
                 {TESTIMONIALS.map((_, i) => (
                   <button
                     key={i}
+                    type="button"
+                    aria-label={`Aller au témoignage ${i + 1}`}
+                    aria-current={i === active ? "true" : undefined}
                     onClick={() => go(i)}
                     className={`rounded-full transition-all duration-300 ${i === active ? "w-6 h-2 premium-gradient" : "w-2 h-2 bg-border hover:bg-muted-foreground"}`}
                   />
