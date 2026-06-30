@@ -6,6 +6,7 @@ import {
   Github, ExternalLink, Sun, Moon,
 } from "lucide-react";
 import { useTheme } from "@/lib/theme";
+import logo from "@/assets/logo.png";
 
 export const Route = createFileRoute("/")({
   component: LandingPage,
@@ -304,11 +305,10 @@ function LandingPage() {
         scrolled ? "bg-surface/85 backdrop-blur-xl border-b border-border shadow-lg" : ""
       }`}>
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2.5 shrink-0">
-            <div className="size-9 rounded-lg premium-gradient grid place-items-center shadow-lg">
-              <Zap className="size-4 text-white" strokeWidth={2.5} />
+          <Link to="/" className="flex items-center shrink-0">
+            <div className="h-10 w-36 overflow-hidden">
+              <img src={logo} alt="VoltCompute" className="block w-full h-full object-contain object-left" />
             </div>
-            <span className="font-bold text-lg tracking-tight">VoltCompute</span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-8">
@@ -690,11 +690,10 @@ function LandingPage() {
         <div className="max-w-5xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-10 mb-12">
             <div className="col-span-2 md:col-span-1">
-              <div className="flex items-center gap-2.5 mb-4">
-                <div className="size-8 rounded-lg premium-gradient grid place-items-center shadow">
-                  <Zap className="size-3.5 text-white" strokeWidth={2.5} />
+              <div className="mb-4">
+                <div className="h-9 w-32 overflow-hidden">
+                  <img src={logo} alt="VoltCompute" className="block w-full h-full object-contain object-left" />
                 </div>
-                <span className="font-bold">VoltCompute</span>
               </div>
               <p className="text-xs text-muted-foreground leading-relaxed">
                 Le calcul décentralisé d'Afrique de l'Ouest, payé en Satoshis via le Lightning Network.

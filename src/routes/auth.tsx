@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { Zap, Mail, Lock, User as UserIcon, Loader2, ArrowLeft, Check, Server, Shield, Wallet, BarChart3 } from "lucide-react";
+import logo from "@/assets/logo.png";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -54,14 +55,10 @@ function AuthPage() {
       </div>
 
       {/* Left Panel - Product Info */}
-      <div className="hidden lg:flex lg:w-1/2 flex-col justify-between p-12 xl:p-16 bg-background border-r border-border">
-        <Link to="/" className="flex items-center gap-3">
-          <div className="size-12 rounded-lg premium-gradient grid place-items-center shadow-lg">
-            <Zap className="size-6 text-white" strokeWidth={2.5} />
-          </div>
-          <div className="leading-tight">
-            <div className="font-bold text-2xl tracking-tight">VoltCompute</div>
-            <div className="text-xs text-muted-foreground font-mono">Calcul décentralisé</div>
+      <div className="hidden lg:flex lg:w-1/2 flex-col justify-between p-12 xl:p-16 pt-8 xl:pt-10 bg-background border-r border-border">
+        <Link to="/" className="flex items-center">
+          <div className="h-11 w-44 overflow-hidden">
+            <img src={logo} alt="VoltCompute" className="block w-full h-full object-contain object-left" />
           </div>
         </Link>
 
@@ -108,16 +105,12 @@ function AuthPage() {
       </div>
 
       {/* Right Panel - Auth Form */}
-      <div className="flex-1 flex items-center justify-center p-8 lg:p-12">
+      <div className="flex-1 flex items-center justify-center p-8 lg:p-12 lg:pt-8">
         <div className="w-full max-w-md">
           {/* Mobile Logo */}
-          <Link to="/auth" className="flex items-center gap-3 justify-center mb-8 lg:hidden">
-            <div className="size-11 rounded-lg premium-gradient grid place-items-center shadow-lg">
-              <Zap className="size-5 text-white" strokeWidth={2.5} />
-            </div>
-            <div className="leading-tight text-center">
-              <div className="font-bold text-xl tracking-tight">VoltCompute</div>
-              <div className="text-[11px] text-muted-foreground font-mono">Calcul décentralisé</div>
+          <Link to="/" className="flex justify-center mb-8 lg:hidden">
+            <div className="h-10 w-40 overflow-hidden">
+              <img src={logo} alt="VoltCompute" className="block w-full h-full object-contain" />
             </div>
           </Link>
 
