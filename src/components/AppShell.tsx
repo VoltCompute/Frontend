@@ -1,7 +1,23 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
-import { Bell, Moon, Plus, Store, Zap, Cpu, Wallet, Sun, LogOut, User, Settings, CheckCircle, AlertTriangle, CreditCard } from "lucide-react";
+import {
+  Bell,
+  Moon,
+  Plus,
+  Store,
+  Zap,
+  Cpu,
+  Wallet,
+  Sun,
+  LogOut,
+  User,
+  Settings,
+  CheckCircle,
+  AlertTriangle,
+  CreditCard,
+} from "lucide-react";
 import { type ReactNode, useState, useRef, useEffect } from "react";
 import { useTheme } from "@/lib/theme";
+import logo from "../assets/logo.png";
 
 const nav = [
   { to: "/marketplace", label: "Marketplace", icon: Store },
@@ -11,9 +27,36 @@ const nav = [
 ] as const;
 
 const NOTIFS = [
-  { id: 1, icon: CheckCircle, color: "text-success", bg: "bg-success/15", title: "Exécution terminée", body: "compute_main.py a été exécuté avec succès", time: "Il y a 2h", read: false },
-  { id: 2, icon: CreditCard, color: "text-primary", bg: "bg-primary/15", title: "Paiement reçu", body: "120 Sats reçus pour Node Alpha", time: "Il y a 5h", read: false },
-  { id: 3, icon: AlertTriangle, color: "text-tertiary", bg: "bg-tertiary/15", title: "Machine hors ligne", body: "Home-Worker-03 est hors ligne depuis 1h", time: "Hier", read: true },
+  {
+    id: 1,
+    icon: CheckCircle,
+    color: "text-success",
+    bg: "bg-success/15",
+    title: "Exécution terminée",
+    body: "compute_main.py a été exécuté avec succès",
+    time: "Il y a 2h",
+    read: false,
+  },
+  {
+    id: 2,
+    icon: CreditCard,
+    color: "text-primary",
+    bg: "bg-primary/15",
+    title: "Paiement reçu",
+    body: "120 Sats reçus pour Node Alpha",
+    time: "Il y a 5h",
+    read: false,
+  },
+  {
+    id: 3,
+    icon: AlertTriangle,
+    color: "text-tertiary",
+    bg: "bg-tertiary/15",
+    title: "Machine hors ligne",
+    body: "Home-Worker-03 est hors ligne depuis 1h",
+    time: "Hier",
+    read: true,
+  },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -45,14 +88,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen flex bg-background text-foreground">
       <aside className="w-[260px] shrink-0 border-r border-border bg-surface flex flex-col">
-        <div className="px-6 pt-7 pb-8">
-          <Link to="/" className="flex items-center gap-3">
-            <div className="size-10 rounded-lg premium-gradient grid place-items-center shadow-lg">
-              <Zap className="size-5 text-white" strokeWidth={2.5} />
-            </div>
-            <div className="leading-tight">
-              <div className="font-bold text-lg tracking-tight">VoltCompute</div>
-              <div className="text-[11px] text-muted-foreground font-mono">4 250 Sats · ≈ 2 480 FCFA</div>
+        <div className="px-6">
+          <Link to="/" className="flex items-center">
+            <div className="w-48 h-16 overflow-hidden">
+              <img src={logo} alt="Logo" className="block w-full h-full object-contain" />
             </div>
           </Link>
         </div>
@@ -106,7 +145,10 @@ export function AppShell({ children }: { children: ReactNode }) {
           {/* Cloche notifications */}
           <div ref={notifRef} className="relative">
             <button
-              onClick={() => { setNotifOpen((v) => !v); setAvatarOpen(false); }}
+              onClick={() => {
+                setNotifOpen((v) => !v);
+                setAvatarOpen(false);
+              }}
               className="size-10 grid place-items-center rounded-full hover:bg-accent text-muted-foreground hover:text-foreground transition relative"
             >
               <Bell className="size-5" />
@@ -125,13 +167,20 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </div>
                 <div className="divide-y divide-border max-h-72 overflow-y-auto">
                   {NOTIFS.map((n) => (
-                    <div key={n.id} className={`flex gap-3 px-4 py-3 hover:bg-accent/40 transition cursor-pointer ${!n.read ? "bg-accent/20" : ""}`}>
-                      <div className={`size-8 rounded-full ${n.bg} grid place-items-center shrink-0 mt-0.5`}>
+                    <div
+                      key={n.id}
+                      className={`flex gap-3 px-4 py-3 hover:bg-accent/40 transition cursor-pointer ${!n.read ? "bg-accent/20" : ""}`}
+                    >
+                      <div
+                        className={`size-8 rounded-full ${n.bg} grid place-items-center shrink-0 mt-0.5`}
+                      >
                         <n.icon className={`size-4 ${n.color}`} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-semibold leading-tight">{n.title}</div>
-                        <div className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{n.body}</div>
+                        <div className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                          {n.body}
+                        </div>
                         <div className="text-[11px] text-muted-foreground mt-1">{n.time}</div>
                       </div>
                       {!n.read && <span className="size-2 rounded-full bg-primary shrink-0 mt-2" />}
@@ -154,7 +203,10 @@ export function AppShell({ children }: { children: ReactNode }) {
           {/* Avatar + menu profil */}
           <div ref={avatarRef} className="relative">
             <button
-              onClick={() => { setAvatarOpen((v) => !v); setNotifOpen(false); }}
+              onClick={() => {
+                setAvatarOpen((v) => !v);
+                setNotifOpen(false);
+              }}
               className="size-10 rounded-full bg-gradient-to-br from-primary to-secondary grid place-items-center text-white text-sm font-semibold hover:opacity-90 transition"
             >
               AK
