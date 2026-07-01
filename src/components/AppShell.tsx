@@ -121,12 +121,12 @@ export function AppShell({ children }: { children: ReactNode }) {
           })}
         </nav>
         <div className="p-4">
-          <button
+          {/* <button
             onClick={() => navigate({ to: "/marketplace" })}
             className="w-full premium-gradient text-white font-semibold rounded-lg py-3 flex items-center justify-center gap-2 shadow-lg hover:opacity-95 transition"
           >
             <Plus className="size-4" /> Nouveau Compute
-          </button>
+          </button> */}
         </div>
       </aside>
 

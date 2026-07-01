@@ -64,6 +64,7 @@ function ExecutionPage() {
   const [checkingPayment, setCheckingPayment] = useState(false);
   const [closing, setClosing] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copiedOutput, setCopiedOutput] = useState(false);
 
   const accept = tab === "zip" ? ".zip" : ".py";
 
@@ -152,6 +153,13 @@ function ExecutionPage() {
     setTimeout(() => setCopied(false), 2000);
   }
 
+  function copyOutput() {
+    if (!result?.result_output) return;
+    navigator.clipboard.writeText(result.result_output);
+    setCopiedOutput(true);
+    setTimeout(() => setCopiedOutput(false), 2000);
+  }
+
   // Polling du résultat tant que la session tourne.
   useEffect(() => {
     if (phase !== "running" || !sessionId) return;
@@ -206,6 +214,14 @@ function ExecutionPage() {
     setSelectedFile(null);
   }
 
+  // Après une erreur, on revient au formulaire sans perdre le fichier déjà
+  // sélectionné : l'utilisateur n'a qu'à relancer.
+  function handleRetry() {
+    setPhase("idle");
+    setLogs([]);
+    setResult(null);
+  }
+
   if (!machineId) {
     return (
       <AppShell>
@@ -225,28 +241,52 @@ function ExecutionPage() {
     );
   }
 
-  const canLaunch = phase === "idle" || phase === "error";
-  // La console/output ne s'affiche qu'après le premier lancement, pas avant.
-  const showConsole = phase !== "idle";
+  // Le formulaire (upload + lancement) n'est visible qu'à l'état de repos ;
+  // dès le lancement, il cède toute la place à la console/résultat.
+  const formVisible = phase === "idle";
+  const hasFooterAction =
+    phase === "awaiting_payment" ||
+    phase === "running" ||
+    phase === "completed" ||
+    phase === "closed" ||
+    phase === "error";
 
   return (
     <AppShell>
-      <div className={`grid grid-cols-1 gap-6 ${showConsole ? "lg:grid-cols-[1fr_460px]" : ""}`}>
-        <section>
-          <div className="flex items-start justify-between flex-wrap gap-3 mb-8">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">Configuration d'Exécution</h1>
-              <p className="text-muted-foreground mt-1.5">
-                Préparez vos fichiers et lancez votre workload décentralisé.
-              </p>
-            </div>
-            <div className="px-4 py-2 rounded-full bg-secondary/15 border border-secondary/30 text-sm">
-              <span className="text-success">✓</span>{" "}
-              <span className="font-semibold">{machineName ?? `Machine #${machineId}`}</span>
-              {pricePerMin !== undefined && <> — {pricePerMin} Sats/min</>}
-            </div>
-          </div>
+      <div className="flex items-start justify-between flex-wrap gap-3 mb-8">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Configuration d'Exécution</h1>
+          <p className="text-muted-foreground mt-1.5">
+            Préparez vos fichiers et lancez votre workload décentralisé.
+          </p>
+        </div>
+        <div className="px-4 py-2 rounded-full bg-secondary/15 border border-secondary/30 text-sm">
+          <span className="text-success">✓</span>{" "}
+          <span className="font-semibold">{machineName ?? `Machine #${machineId}`}</span>
+          {pricePerMin !== undefined && <> — {pricePerMin} Sats/min</>}
+        </div>
+      </div>
 
+      {/* Les deux colonnes partagent une grille dont les pistes s'animent :
+          la piste du formulaire passe de 1fr à 0fr (et inversement pour la
+          console), ce qui laisse la console récupérer fluidement tout
+          l'espace libéré, gap compris (calcul automatique par CSS Grid). */}
+      <div
+        className="grid items-start gap-6"
+        style={{
+          gridTemplateColumns: formVisible ? "1fr 0fr" : "0fr 1fr",
+          transition: "grid-template-columns 500ms cubic-bezier(0.4, 0, 0.2, 1)",
+        }}
+      >
+        <section
+          aria-hidden={!formVisible}
+          className="min-w-0 overflow-hidden"
+          style={{
+            opacity: formVisible ? 1 : 0,
+            pointerEvents: formVisible ? "auto" : "none",
+            transition: formVisible ? "opacity 400ms ease-out 150ms" : "opacity 200ms ease-in",
+          }}
+        >
           <div className="card-surface overflow-hidden">
             <div className="flex border-b border-border">
               <TabBtn
@@ -291,7 +331,7 @@ function ExecutionPage() {
                       {(selectedFile.size / 1024).toFixed(1)} KB
                     </div>
                   </div>
-                  {canLaunch && (
+                  {formVisible && (
                     <button
                       onClick={() => setSelectedFile(null)}
                       className="text-muted-foreground hover:text-foreground"
@@ -327,7 +367,7 @@ function ExecutionPage() {
                 </div>
               )}
 
-              {canLaunch && (
+              {formVisible && (
                 <button
                   onClick={handleLancer}
                   className="w-full mt-6 premium-gradient text-white font-semibold rounded-lg py-4 flex items-center justify-center gap-2.5 shadow-lg hover:opacity-95 text-base"
@@ -337,9 +377,99 @@ function ExecutionPage() {
                     : "⚡ Lancer l'exécution"}
                 </button>
               )}
+            </div>
+          </div>
+        </section>
 
+        <aside
+          aria-hidden={formVisible}
+          className="min-w-0 overflow-hidden card-surface flex flex-col min-h-[600px] bg-[oklch(0.10_0.02_270)] dark:bg-[oklch(0.10_0.02_270)]"
+          style={{
+            opacity: formVisible ? 0 : 1,
+            pointerEvents: formVisible ? "none" : "auto",
+            transition: formVisible ? "opacity 200ms ease-in" : "opacity 400ms ease-out 150ms",
+          }}
+        >
+          <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+            <div className="flex items-center gap-2 text-sm">
+              <span
+                className={`size-2 rounded-full pulse-dot ${
+                  phase === "running" || phase === "launching"
+                    ? "bg-success text-success"
+                    : "bg-destructive text-destructive"
+                }`}
+              />
+              <span className="font-semibold">Console</span>
+            </div>
+            <div className="text-xs font-mono px-3 py-1 rounded-md bg-surface-3 border border-border">
+              {sessionId ? `Session #${sessionId} · ${phase}` : "Aucune session"}
+            </div>
+          </div>
+
+          <div className="flex-1 px-5 py-4 font-mono text-[13px] leading-6 space-y-1 overflow-y-auto">
+            {logs.map((line, i) => (
+              <div
+                key={i}
+                className={line.startsWith("ERREUR") ? "text-destructive" : "text-success"}
+              >
+                {line}
+              </div>
+            ))}
+
+            {phase === "running" && (
+              <div className="flex items-center gap-2 text-muted-foreground pt-2">
+                <Loader2 className="size-3.5 animate-spin" /> En attente du résultat...
+              </div>
+            )}
+
+            {result?.result_output && (
+              <div className="relative mt-3">
+                <pre className="whitespace-pre-wrap text-foreground border border-border rounded-lg p-3 pr-12 bg-surface-2">
+                  {result.result_output}
+                </pre>
+                <button
+                  onClick={copyOutput}
+                  className="absolute top-2 right-2 p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground"
+                  title="Copier la sortie"
+                >
+                  {copiedOutput ? (
+                    <Check className="size-4 text-success" />
+                  ) : (
+                    <Copy className="size-4" />
+                  )}
+                </button>
+              </div>
+            )}
+
+            {result?.execution_result === "error" && (
+              <div className="mt-4 rounded-lg border border-destructive/40 bg-destructive/10 p-4">
+                <div className="flex items-start gap-2.5">
+                  <AlertCircle className="size-4 text-destructive shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <div className="font-semibold text-destructive">Le script a échoué</div>
+                    {result.error_message && (
+                      <div className="text-xs text-muted-foreground leading-5">
+                        {result.error_message}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {phase === "closed" && (
+              <div className="mt-4 flex items-center gap-2 text-success">
+                <CheckCircle2 className="size-4" /> Session clôturée.
+              </div>
+            )}
+
+            <div className="text-muted-foreground pt-2">_</div>
+          </div>
+
+          {hasFooterAction && (
+            <div className="border-t border-border px-5 py-4 font-sans">
               {phase === "awaiting_payment" && invoice && (
-                <div className="mt-6 space-y-3 rounded-lg border border-primary/40 bg-primary/5 p-4">
+                <div className="space-y-3">
                   <div className="text-sm font-semibold">
                     Facture Lightning — {invoice.amount_sats} sats
                   </div>
@@ -383,7 +513,7 @@ function ExecutionPage() {
                 <button
                   onClick={handleClose}
                   disabled={closing}
-                  className="w-full mt-4 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive font-semibold py-3 flex items-center justify-center gap-2 hover:bg-destructive/20 disabled:opacity-60"
+                  className="w-full rounded-lg border border-destructive/30 bg-destructive/10 text-destructive font-semibold py-3 flex items-center justify-center gap-2 hover:bg-destructive/20 disabled:opacity-60"
                 >
                   {closing ? <Loader2 className="size-4 animate-spin" /> : null}
                   {phase === "completed"
@@ -395,80 +525,23 @@ function ExecutionPage() {
               {phase === "closed" && (
                 <button
                   onClick={handleNewExecution}
-                  className="w-full mt-4 px-5 py-3 rounded-lg bg-surface-2 border border-border text-sm font-medium hover:border-primary/50 transition"
+                  className="w-full px-5 py-3 rounded-lg bg-surface-2 border border-border text-sm font-medium hover:border-primary/50 transition"
                 >
                   Lancer une nouvelle exécution
                 </button>
               )}
-            </div>
-          </div>
-        </section>
 
-        {showConsole && (
-          <aside className="card-surface flex flex-col min-h-[600px] bg-[oklch(0.10_0.02_270)] dark:bg-[oklch(0.10_0.02_270)]">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-              <div className="flex items-center gap-2 text-sm">
-                <span
-                  className={`size-2 rounded-full pulse-dot ${
-                    phase === "running" || phase === "launching"
-                      ? "bg-success text-success"
-                      : "bg-destructive text-destructive"
-                  }`}
-                />
-                <span className="font-semibold">Console</span>
-              </div>
-              <div className="text-xs font-mono px-3 py-1 rounded-md bg-surface-3 border border-border">
-                {sessionId ? `Session #${sessionId} · ${phase}` : "Aucune session"}
-              </div>
-            </div>
-            <div className="flex-1 px-5 py-4 font-mono text-[13px] leading-6 space-y-1 overflow-y-auto">
-              {logs.map((line, i) => (
-                <div
-                  key={i}
-                  className={line.startsWith("ERREUR") ? "text-destructive" : "text-success"}
+              {phase === "error" && (
+                <button
+                  onClick={handleRetry}
+                  className="w-full px-5 py-3 rounded-lg bg-surface-2 border border-border text-sm font-medium hover:border-primary/50 transition"
                 >
-                  {line}
-                </div>
-              ))}
-
-              {phase === "running" && (
-                <div className="flex items-center gap-2 text-muted-foreground pt-2">
-                  <Loader2 className="size-3.5 animate-spin" /> En attente du résultat...
-                </div>
+                  Réessayer
+                </button>
               )}
-
-              {result?.result_output && (
-                <pre className="mt-3 whitespace-pre-wrap text-foreground border border-border rounded-lg p-3 bg-surface-2">
-                  {result.result_output}
-                </pre>
-              )}
-
-              {result?.execution_result === "error" && (
-                <div className="mt-4 rounded-lg border border-destructive/40 bg-destructive/10 p-4">
-                  <div className="flex items-start gap-2.5">
-                    <AlertCircle className="size-4 text-destructive shrink-0 mt-0.5" />
-                    <div className="space-y-1">
-                      <div className="font-semibold text-destructive">Le script a échoué</div>
-                      {result.error_message && (
-                        <div className="text-xs text-muted-foreground leading-5">
-                          {result.error_message}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {phase === "closed" && (
-                <div className="mt-4 flex items-center gap-2 text-success">
-                  <CheckCircle2 className="size-4" /> Session clôturée.
-                </div>
-              )}
-
-              <div className="text-muted-foreground pt-2">_</div>
             </div>
-          </aside>
-        )}
+          )}
+        </aside>
       </div>
     </AppShell>
   );

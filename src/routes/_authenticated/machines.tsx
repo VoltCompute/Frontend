@@ -21,7 +21,12 @@ export const Route = createFileRoute("/_authenticated/machines")({
   component: MachinesPage,
 });
 
-const EMPTY_FORM = { name: "", price_per_min: "", localisation_ville: "", localisation_pays: "" };
+const EMPTY_FORM = { name: "", price_session: "", localisation_ville: "", localisation_pays: "" };
+
+// Le fournisseur saisit le prix d'une session complète (bloc facturé par
+// le backend, cf. SESSION_DURATION_MIN côté serveur), pas un prix par minute :
+// on en dérive le price_per_min attendu par l'API.
+const SESSION_DURATION_MIN = 30;
 
 /** GPU/CPU/RAM ne sont connus qu'une fois l'agent connecté (update_specs). */
 function formatSpec(m: Machine): string {
@@ -71,16 +76,21 @@ function MachinesPage() {
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
-    const price = Number(form.price_per_min);
-    if (!form.name.trim() || !Number.isInteger(price) || price <= 0) {
-      toast.error("Nom et tarif (un nombre entier de sats/min) requis.");
+    const sessionPrice = Number(form.price_session);
+    if (!form.name.trim() || !Number.isInteger(sessionPrice) || sessionPrice <= 0) {
+      toast.error(
+        `Nom et tarif (un nombre entier de sats pour ${SESSION_DURATION_MIN} min) requis.`,
+      );
       return;
     }
+    // price_per_min attendu par l'API : dérivé du prix de session saisi,
+    // jamais inférieur à 1 sat/min.
+    const pricePerMin = Math.max(1, Math.round(sessionPrice / SESSION_DURATION_MIN));
     setAdding(true);
     try {
       const result = await addMachine({
         name: form.name.trim(),
-        price_per_min: price,
+        price_per_min: pricePerMin,
         localisation_ville: form.localisation_ville.trim() || undefined,
         localisation_pays: form.localisation_pays.trim() || undefined,
       });
@@ -145,10 +155,12 @@ function MachinesPage() {
         </div>
         <button
           onClick={() => setShowAddModal(true)}
-          className="size-12 rounded-full premium-gradient grid place-items-center shadow-lg text-white hover:opacity-95"
+          className="inline-flex items-center gap-2 rounded-xl
+           premium-gradient px-4 py-2 shadow-lg text-white hover:opacity-95 transition-opacity"
           title="Ajouter une machine"
         >
           <Plus className="size-5" />
+          <span>Ajouter une machine</span>
         </button>
       </div>
 
@@ -183,9 +195,6 @@ function MachinesPage() {
         ) : machines.length === 0 ? (
           <div className="text-center py-16 text-muted-foreground text-sm">
             Aucune machine connectée.{" "}
-            <button onClick={() => setShowAddModal(true)} className="text-primary hover:underline">
-              Ajouter une machine
-            </button>
           </div>
         ) : (
           machines.map((m) => (
@@ -310,16 +319,26 @@ function MachinesPage() {
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium mb-1.5 block">Tarif (Sats/min) *</label>
+                  <label className="text-sm font-medium mb-1.5 block">
+                    Tarif (Sats / session de {SESSION_DURATION_MIN} min) *
+                  </label>
                   <input
                     type="number"
                     min="1"
                     step="1"
-                    value={form.price_per_min}
-                    onChange={(e) => setForm({ ...form, price_per_min: e.target.value })}
-                    placeholder="ex: 5"
+                    value={form.price_session}
+                    onChange={(e) => setForm({ ...form, price_session: e.target.value })}
+                    placeholder="ex: 150"
                     className="w-full bg-input border border-border rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
                   />
+                  {Number.isInteger(Number(form.price_session)) &&
+                    Number(form.price_session) > 0 && (
+                      <p className="text-xs text-muted-foreground mt-1.5">
+                        ≈{" "}
+                        {Math.max(1, Math.round(Number(form.price_session) / SESSION_DURATION_MIN))}{" "}
+                        Sats/min
+                      </p>
+                    )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
