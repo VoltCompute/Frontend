@@ -1,39 +1,75 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useState, useRef } from "react";
-import { Upload, FileText, FolderArchive, Github, RefreshCw, AlertCircle, X } from "lucide-react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useRef, useState } from "react";
+import {
+  Upload,
+  FileText,
+  FolderArchive,
+  AlertCircle,
+  X,
+  Loader2,
+  Copy,
+  Check,
+  CheckCircle2,
+} from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { toast } from "sonner";
+import {
+  initSession,
+  uploadCode,
+  requestInvoice,
+  getPaymentStatus,
+  getSessionResult,
+  closeSession,
+  mockPay,
+} from "@/api/sessions";
+import type { InvoiceResult, SessionResult } from "@/api/sessions";
+import type { ApiError } from "@/api/types";
 
 export const Route = createFileRoute("/_authenticated/execution")({
+  // machineId/machineName/pricePerMin sont passés par le marketplace (bouton
+  // "Utiliser cette machine") : pas de route GET /machines/{id} publique
+  // côté backend pour les re-résoudre depuis cette page.
+  validateSearch: (search: Record<string, unknown>) => ({
+    machineId: search.machineId !== undefined ? Number(search.machineId) : undefined,
+    machineName: typeof search.machineName === "string" ? search.machineName : undefined,
+    pricePerMin: search.pricePerMin !== undefined ? Number(search.pricePerMin) : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Exécution — VoltCompute" },
-      { name: "description", content: "Configurez et lancez vos workloads décentralisés sur les nodes du réseau." },
+      {
+        name: "description",
+        content: "Configurez et lancez vos workloads décentralisés sur les nodes du réseau.",
+      },
     ],
   }),
   component: ExecutionPage,
 });
 
-const INITIAL_LOGS = [
-  { t: "system", text: "[SYSTEM] Initialisation de l'environnement Docker..." },
-  { t: "system", text: "[SYSTEM] Téléchargement de l'image python:3.9-slim..." },
-  { t: "system", text: "[SYSTEM] Montage du volume éphémère /app..." },
-  { t: "exec", text: "→ Executing script: compute_main.py" },
-  { t: "info", text: "INFO: Loading dataset 'bitcoin_historical_data'..." },
-  { t: "info", text: "INFO: Pre-processing 1,240,000 entries..." },
-  { t: "debug", text: "DEBUG: Allocating 4GB RAM to worker node..." },
-];
+type Phase =
+  "idle" | "launching" | "awaiting_payment" | "running" | "completed" | "closed" | "error";
 
 function ExecutionPage() {
-  const [tab, setTab] = useState<"file" | "zip" | "github">("file");
+  const { machineId, machineName, pricePerMin } = Route.useSearch();
+
+  const [tab, setTab] = useState<"file" | "zip">("file");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [githubUrl, setGithubUrl] = useState("");
-  const [running, setRunning] = useState(false);
-  const [logs, setLogs] = useState(INITIAL_LOGS);
-  const [showError, setShowError] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const accept = tab === "zip" ? ".zip" : ".py,.js,.sh,.ts";
+  const [phase, setPhase] = useState<Phase>("idle");
+  const [sessionId, setSessionId] = useState<number | null>(null);
+  const [invoice, setInvoice] = useState<InvoiceResult | null>(null);
+  const [result, setResult] = useState<SessionResult | null>(null);
+  const [logs, setLogs] = useState<string[]>([]);
+  const [checkingPayment, setCheckingPayment] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const accept = tab === "zip" ? ".zip" : ".py";
+
+  function appendLog(text: string) {
+    setLogs((prev) => [...prev, text]);
+  }
 
   function handleFile(file: File) {
     setSelectedFile(file);
@@ -46,182 +82,393 @@ function ExecutionPage() {
     if (file) handleFile(file);
   }
 
-  function handleLancer() {
-    const hasInput = tab === "github" ? githubUrl.trim() : selectedFile;
-    if (!hasInput) {
-      toast.error(tab === "github" ? "Veuillez entrer une URL GitHub." : "Veuillez sélectionner un fichier.");
+  async function handleLancer() {
+    if (!machineId) {
+      toast.error("Sélectionnez une machine depuis le marketplace.");
       return;
     }
-    setRunning(true);
-    setShowError(false);
-    setLogs([{ t: "system", text: "[SYSTEM] Démarrage de la session..." }]);
-    // TODO: remplacer par l'appel API réel
-    setTimeout(() => {
-      setLogs((prev) => [...prev, { t: "exec", text: `→ Executing: ${tab === "github" ? githubUrl : selectedFile!.name}` }]);
-    }, 600);
-    setTimeout(() => {
-      setLogs((prev) => [...prev, { t: "info", text: "INFO: Connexion au node Benin-Alpha-Node..." }]);
-    }, 1200);
-    setTimeout(() => {
-      setRunning(false);
-      setLogs((prev) => [...prev, { t: "info", text: "INFO: Exécution terminée avec succès." }]);
-      toast.success("Exécution terminée !");
-    }, 2500);
+    if (!selectedFile) {
+      toast.error("Veuillez sélectionner un fichier.");
+      return;
+    }
+
+    setPhase("launching");
+    setLogs([]);
+    setResult(null);
+    try {
+      appendLog("Création de la session...");
+      const init = await initSession(machineId);
+      setSessionId(init.session_id);
+
+      appendLog(`Upload de ${selectedFile.name}...`);
+      await uploadCode(init.session_id, selectedFile);
+
+      appendLog("Génération de la facture Lightning...");
+      const inv = await requestInvoice(init.session_id);
+      setInvoice(inv);
+      appendLog(`Facture générée : ${inv.amount_sats} sats. En attente du paiement...`);
+      setPhase("awaiting_payment");
+    } catch (err) {
+      const message = (err as ApiError).message || "Échec du lancement.";
+      appendLog(`ERREUR : ${message}`);
+      toast.error(message);
+      setPhase("error");
+    }
   }
 
-  function handleRetry() {
-    setShowError(false);
-    setLogs(INITIAL_LOGS.slice(0, 4));
-    toast.info("Relance en cours...");
-    setTimeout(() => {
-      setLogs((prev) => [...prev, { t: "info", text: "INFO: Réinstallation de numpy==1.24.0..." }]);
-    }, 800);
-    setTimeout(() => {
-      setLogs((prev) => [...prev, { t: "info", text: "INFO: Exécution relancée avec succès." }]);
-      toast.success("Script relancé !");
-    }, 2000);
+  async function checkPayment() {
+    if (!sessionId) return;
+    setCheckingPayment(true);
+    try {
+      const status = await getPaymentStatus(sessionId);
+      if (status.paid) {
+        appendLog("Paiement confirmé. Exécution lancée sur la machine...");
+        setPhase("running");
+      } else {
+        toast.info("Paiement non détecté pour le moment.");
+      }
+    } catch (err) {
+      toast.error((err as ApiError).message || "Échec de la vérification du paiement.");
+    } finally {
+      setCheckingPayment(false);
+    }
   }
+
+  async function simulatePayment() {
+    if (!sessionId) return;
+    try {
+      await mockPay(sessionId);
+      toast.success("Paiement simulé (mode dev).");
+      await checkPayment();
+    } catch (err) {
+      toast.error((err as ApiError).message || "Simulation indisponible (LNbits en mode réel).");
+    }
+  }
+
+  function copyInvoice() {
+    if (!invoice) return;
+    navigator.clipboard.writeText(invoice.payment_request);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  // Polling du résultat tant que la session tourne.
+  useEffect(() => {
+    if (phase !== "running" || !sessionId) return;
+    let cancelled = false;
+    const interval = setInterval(async () => {
+      try {
+        const r = await getSessionResult(sessionId);
+        if (cancelled) return;
+        setResult(r);
+        if (r.status === "completed" || r.status === "closed") {
+          appendLog(
+            r.execution_result === "error"
+              ? "Exécution terminée avec une erreur."
+              : "Exécution terminée avec succès.",
+          );
+          setPhase(r.status === "closed" ? "closed" : "completed");
+        }
+      } catch {
+        // Erreur de polling transitoire : on retentera au prochain tick.
+      }
+    }, 2500);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [phase, sessionId]);
+
+  async function handleClose() {
+    if (!sessionId) return;
+    setClosing(true);
+    try {
+      const res = await closeSession(sessionId);
+      toast.success(
+        phase === "completed"
+          ? `Session clôturée. ${res.amount_credited} sats versés au fournisseur.`
+          : "Exécution annulée et session clôturée.",
+      );
+      setPhase("closed");
+    } catch (err) {
+      toast.error((err as ApiError).message || "Échec de la clôture.");
+    } finally {
+      setClosing(false);
+    }
+  }
+
+  function handleNewExecution() {
+    setPhase("idle");
+    setSessionId(null);
+    setInvoice(null);
+    setResult(null);
+    setLogs([]);
+    setSelectedFile(null);
+  }
+
+  if (!machineId) {
+    return (
+      <AppShell>
+        <div className="card-surface p-10 text-center">
+          <h1 className="text-2xl font-bold mb-2">Aucune machine sélectionnée</h1>
+          <p className="text-muted-foreground mb-6">
+            Choisissez d'abord une machine dans le marketplace pour lancer une exécution.
+          </p>
+          <Link
+            to="/marketplace"
+            className="inline-flex items-center justify-center premium-gradient text-white font-semibold rounded-lg px-6 py-3 shadow-lg hover:opacity-95"
+          >
+            Aller au Marketplace
+          </Link>
+        </div>
+      </AppShell>
+    );
+  }
+
+  const canLaunch = phase === "idle" || phase === "error";
+  // La console/output ne s'affiche qu'après le premier lancement, pas avant.
+  const showConsole = phase !== "idle";
 
   return (
     <AppShell>
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_460px] gap-6">
+      <div className={`grid grid-cols-1 gap-6 ${showConsole ? "lg:grid-cols-[1fr_460px]" : ""}`}>
         <section>
           <div className="flex items-start justify-between flex-wrap gap-3 mb-8">
             <div>
               <h1 className="text-3xl font-bold tracking-tight">Configuration d'Exécution</h1>
-              <p className="text-muted-foreground mt-1.5">Préparez vos fichiers et lancez votre workload décentralisé.</p>
+              <p className="text-muted-foreground mt-1.5">
+                Préparez vos fichiers et lancez votre workload décentralisé.
+              </p>
             </div>
             <div className="px-4 py-2 rounded-full bg-secondary/15 border border-secondary/30 text-sm">
-              <span className="text-success">✓</span> <span className="font-semibold">Benin-Alpha-Node</span> — 3 Sats/min
+              <span className="text-success">✓</span>{" "}
+              <span className="font-semibold">{machineName ?? `Machine #${machineId}`}</span>
+              {pricePerMin !== undefined && <> — {pricePerMin} Sats/min</>}
             </div>
           </div>
 
           <div className="card-surface overflow-hidden">
             <div className="flex border-b border-border">
-              <TabBtn active={tab === "file"} onClick={() => { setTab("file"); setSelectedFile(null); }} icon={FileText}>Fichier</TabBtn>
-              <TabBtn active={tab === "zip"} onClick={() => { setTab("zip"); setSelectedFile(null); }} icon={FolderArchive}>ZIP</TabBtn>
-              <TabBtn active={tab === "github"} onClick={() => setTab("github")} icon={Github}>GitHub</TabBtn>
+              <TabBtn
+                active={tab === "file"}
+                onClick={() => {
+                  setTab("file");
+                  setSelectedFile(null);
+                }}
+                icon={FileText}
+              >
+                Fichier Python
+              </TabBtn>
+              <TabBtn
+                active={tab === "zip"}
+                onClick={() => {
+                  setTab("zip");
+                  setSelectedFile(null);
+                }}
+                icon={FolderArchive}
+              >
+                Archive ZIP
+              </TabBtn>
             </div>
 
             <div className="p-6">
-              {tab === "github" ? (
-                <input
-                  value={githubUrl}
-                  onChange={(e) => setGithubUrl(e.target.value)}
-                  className="w-full bg-input border border-border rounded-lg px-4 py-3 text-sm font-mono focus:border-primary focus:ring-2 focus:ring-primary/30 outline-none"
-                  placeholder="https://github.com/user/repo.git"
-                />
-              ) : (
-                <>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept={accept}
-                    className="hidden"
-                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
-                  />
-                  {selectedFile ? (
-                    <div className="flex items-center gap-3 rounded-lg border border-primary/40 bg-primary/5 p-4">
-                      <FileText className="size-5 text-primary shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium truncate">{selectedFile.name}</div>
-                        <div className="text-xs text-muted-foreground">{(selectedFile.size / 1024).toFixed(1)} KB</div>
-                      </div>
-                      <button onClick={() => setSelectedFile(null)} className="text-muted-foreground hover:text-foreground">
-                        <X className="size-4" />
-                      </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept={accept}
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handleFile(f);
+                }}
+              />
+              {selectedFile ? (
+                <div className="flex items-center gap-3 rounded-lg border border-primary/40 bg-primary/5 p-4">
+                  <FileText className="size-5 text-primary shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium truncate">{selectedFile.name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {(selectedFile.size / 1024).toFixed(1)} KB
                     </div>
-                  ) : (
-                    <div
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={handleDrop}
-                      onClick={() => fileInputRef.current?.click()}
-                      className="border-2 border-dashed border-border rounded-lg py-16 text-center hover:border-primary/50 transition cursor-pointer"
+                  </div>
+                  {canLaunch && (
+                    <button
+                      onClick={() => setSelectedFile(null)}
+                      className="text-muted-foreground hover:text-foreground"
                     >
-                      <div className="size-14 rounded-full bg-surface-3 grid place-items-center mx-auto mb-4">
-                        <Upload className="size-6 text-muted-foreground" />
-                      </div>
-                      <div className="font-semibold text-lg">Déposez votre script ici</div>
-                      <div className="text-sm text-muted-foreground mt-1">
-                        {tab === "zip" ? "Archive .zip (Max 200MB)" : "Supporte .py, .js, .sh (Max 50MB)"}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
-                        className="mt-5 px-5 py-2 rounded-lg bg-surface-2 border border-border text-sm font-medium hover:border-primary/50 transition"
-                      >
-                        Parcourir les fichiers
-                      </button>
-                    </div>
+                      <X className="size-4" />
+                    </button>
                   )}
-                </>
+                </div>
+              ) : (
+                <div
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={handleDrop}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="border-2 border-dashed border-border rounded-lg py-16 text-center hover:border-primary/50 transition cursor-pointer"
+                >
+                  <div className="size-14 rounded-full bg-surface-3 grid place-items-center mx-auto mb-4">
+                    <Upload className="size-6 text-muted-foreground" />
+                  </div>
+                  <div className="font-semibold text-lg">Déposez votre script ici</div>
+                  <div className="text-sm text-muted-foreground mt-1">
+                    {tab === "zip" ? "Archive .zip (Max 50MB)" : "Script Python .py (Max 50MB)"}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      fileInputRef.current?.click();
+                    }}
+                    className="mt-5 px-5 py-2 rounded-lg bg-surface-2 border border-border text-sm font-medium hover:border-primary/50 transition"
+                  >
+                    Parcourir les fichiers
+                  </button>
+                </div>
               )}
 
-              <button
-                onClick={handleLancer}
-                disabled={running}
-                className="w-full mt-6 premium-gradient text-white font-semibold rounded-lg py-4 flex items-center justify-center gap-2.5 shadow-lg hover:opacity-95 text-base disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {running ? (
-                  <>
-                    <RefreshCw className="size-4 animate-spin" /> Exécution en cours...
-                  </>
-                ) : (
-                  "⚡ Lancer l'exécution (30 Sats)"
-                )}
-              </button>
+              {canLaunch && (
+                <button
+                  onClick={handleLancer}
+                  className="w-full mt-6 premium-gradient text-white font-semibold rounded-lg py-4 flex items-center justify-center gap-2.5 shadow-lg hover:opacity-95 text-base"
+                >
+                  {pricePerMin !== undefined
+                    ? `⚡ Lancer l'exécution (${pricePerMin * 30} Sats)`
+                    : "⚡ Lancer l'exécution"}
+                </button>
+              )}
+
+              {phase === "awaiting_payment" && invoice && (
+                <div className="mt-6 space-y-3 rounded-lg border border-primary/40 bg-primary/5 p-4">
+                  <div className="text-sm font-semibold">
+                    Facture Lightning — {invoice.amount_sats} sats
+                  </div>
+                  <div className="relative">
+                    <pre className="bg-input border border-border rounded-lg px-4 py-3 text-xs font-mono overflow-x-auto pr-12 whitespace-pre-wrap break-all">
+                      {invoice.payment_request}
+                    </pre>
+                    <button
+                      onClick={copyInvoice}
+                      className="absolute top-2 right-2 p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground"
+                      title="Copier"
+                    >
+                      {copied ? (
+                        <Check className="size-4 text-success" />
+                      ) : (
+                        <Copy className="size-4" />
+                      )}
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={checkPayment}
+                      disabled={checkingPayment}
+                      className="px-4 py-2 rounded-md premium-gradient text-white text-sm font-medium hover:opacity-95 disabled:opacity-60 inline-flex items-center gap-2"
+                    >
+                      {checkingPayment ? <Loader2 className="size-4 animate-spin" /> : null}
+                      J'ai payé, vérifier
+                    </button>
+                    <button
+                      onClick={simulatePayment}
+                      className="px-4 py-2 rounded-md bg-surface-2 border border-border text-sm font-medium hover:border-primary/50"
+                      title="Disponible uniquement si le backend tourne en mode mock LNbits"
+                    >
+                      Simuler le paiement (dev)
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {(phase === "completed" || phase === "running") && (
+                <button
+                  onClick={handleClose}
+                  disabled={closing}
+                  className="w-full mt-4 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive font-semibold py-3 flex items-center justify-center gap-2 hover:bg-destructive/20 disabled:opacity-60"
+                >
+                  {closing ? <Loader2 className="size-4 animate-spin" /> : null}
+                  {phase === "completed"
+                    ? "Clôturer et verser les fonds au fournisseur"
+                    : "Annuler l'exécution"}
+                </button>
+              )}
+
+              {phase === "closed" && (
+                <button
+                  onClick={handleNewExecution}
+                  className="w-full mt-4 px-5 py-3 rounded-lg bg-surface-2 border border-border text-sm font-medium hover:border-primary/50 transition"
+                >
+                  Lancer une nouvelle exécution
+                </button>
+              )}
             </div>
           </div>
         </section>
 
-        <aside className="card-surface flex flex-col min-h-[600px] bg-[oklch(0.10_0.02_270)] dark:bg-[oklch(0.10_0.02_270)]">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-            <div className="flex items-center gap-2 text-sm">
-              <span className={`size-2 rounded-full pulse-dot ${running ? "bg-success text-success" : "bg-destructive text-destructive"}`} />
-              <span className="font-semibold">Console en direct</span>
-            </div>
-            <div className="text-xs font-mono px-3 py-1 rounded-md bg-surface-3 border border-border">
-              {running ? "En cours..." : "Session Active : 09:59"}
-            </div>
-          </div>
-          <div className="flex-1 px-5 py-4 font-mono text-[13px] leading-6 space-y-1 overflow-y-auto">
-            {logs.map((l, i) => (
-              <div
-                key={i}
-                className={
-                  l.t === "system" ? "text-muted-foreground"
-                  : l.t === "exec" ? "text-primary"
-                  : l.t === "info" ? "text-success"
-                  : "text-tertiary"
-                }
-              >
-                {l.text}
+        {showConsole && (
+          <aside className="card-surface flex flex-col min-h-[600px] bg-[oklch(0.10_0.02_270)] dark:bg-[oklch(0.10_0.02_270)]">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+              <div className="flex items-center gap-2 text-sm">
+                <span
+                  className={`size-2 rounded-full pulse-dot ${
+                    phase === "running" || phase === "launching"
+                      ? "bg-success text-success"
+                      : "bg-destructive text-destructive"
+                  }`}
+                />
+                <span className="font-semibold">Console</span>
               </div>
-            ))}
+              <div className="text-xs font-mono px-3 py-1 rounded-md bg-surface-3 border border-border">
+                {sessionId ? `Session #${sessionId} · ${phase}` : "Aucune session"}
+              </div>
+            </div>
+            <div className="flex-1 px-5 py-4 font-mono text-[13px] leading-6 space-y-1 overflow-y-auto">
+              {logs.map((line, i) => (
+                <div
+                  key={i}
+                  className={line.startsWith("ERREUR") ? "text-destructive" : "text-success"}
+                >
+                  {line}
+                </div>
+              ))}
 
-            {showError && (
-              <div className="mt-4 rounded-lg border border-destructive/40 bg-destructive/10 p-4">
-                <div className="flex items-start gap-2.5">
-                  <AlertCircle className="size-4 text-destructive shrink-0 mt-0.5" />
-                  <div className="space-y-2">
-                    <div className="font-semibold text-destructive">ModuleNotFoundError: No module named 'numpy'</div>
-                    <div className="text-xs text-muted-foreground leading-5">
-                      Le script a échoué car une dépendance est manquante. Veuillez vérifier votre configuration pip.
+              {phase === "running" && (
+                <div className="flex items-center gap-2 text-muted-foreground pt-2">
+                  <Loader2 className="size-3.5 animate-spin" /> En attente du résultat...
+                </div>
+              )}
+
+              {result?.result_output && (
+                <pre className="mt-3 whitespace-pre-wrap text-foreground border border-border rounded-lg p-3 bg-surface-2">
+                  {result.result_output}
+                </pre>
+              )}
+
+              {result?.execution_result === "error" && (
+                <div className="mt-4 rounded-lg border border-destructive/40 bg-destructive/10 p-4">
+                  <div className="flex items-start gap-2.5">
+                    <AlertCircle className="size-4 text-destructive shrink-0 mt-0.5" />
+                    <div className="space-y-1">
+                      <div className="font-semibold text-destructive">Le script a échoué</div>
+                      {result.error_message && (
+                        <div className="text-xs text-muted-foreground leading-5">
+                          {result.error_message}
+                        </div>
+                      )}
                     </div>
-                    <button
-                      onClick={handleRetry}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-destructive/20 hover:bg-destructive/30 text-destructive text-xs font-semibold transition"
-                    >
-                      <RefreshCw className="size-3" /> Corriger & Relancer
-                    </button>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            <div className="text-muted-foreground pt-2">_</div>
-          </div>
-        </aside>
+              {phase === "closed" && (
+                <div className="mt-4 flex items-center gap-2 text-success">
+                  <CheckCircle2 className="size-4" /> Session clôturée.
+                </div>
+              )}
+
+              <div className="text-muted-foreground pt-2">_</div>
+            </div>
+          </aside>
+        )}
       </div>
     </AppShell>
   );
@@ -242,7 +489,9 @@ function TabBtn({
     <button
       onClick={onClick}
       className={`flex items-center gap-2 px-6 py-4 text-sm font-medium border-b-2 transition ${
-        active ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
+        active
+          ? "border-primary text-foreground"
+          : "border-transparent text-muted-foreground hover:text-foreground"
       }`}
     >
       <Icon className="size-4" /> {children}

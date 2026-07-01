@@ -2,6 +2,8 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { Zap, Mail, Lock, User as UserIcon, Loader2, ArrowLeft, Check, Server, Shield, Wallet, BarChart3 } from "lucide-react";
 import logo from "@/assets/logo.png";
+import { login, register } from "@/api/auth";
+import type { ApiError } from "@/api/types";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -38,12 +40,25 @@ function AuthPage() {
     }
 
     setLoading(true);
-    // TODO: remplacer par l'appel à votre API
-    setTimeout(() => {
-      setLoading(false);
-      localStorage.setItem("auth_token", "demo");
+    try {
+      if (mode === "signup") {
+        // L'inscription ne renvoie pas de token : on enchaîne avec un login
+        // pour récupérer le JWT et démarrer la session.
+        await register({
+          first_name: form.first_name,
+          last_name: form.last_name,
+          email: form.email,
+          password: form.password,
+        });
+      }
+      await login({ email: form.email, password: form.password });
       navigate({ to: "/marketplace" });
-    }, 800);
+    } catch (err) {
+      const apiError = err as ApiError;
+      setError(apiError.message || "Une erreur est survenue. Réessayez.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (

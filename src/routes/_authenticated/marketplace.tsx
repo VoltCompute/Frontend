@@ -1,7 +1,10 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState, useMemo } from "react";
-import { Search, X, Server, ChevronDown, BadgeCheck, Cpu } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { Search, X, Server, ChevronDown, BadgeCheck, Cpu, Loader2 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
+import { getMarketplaceMachines } from "@/api/marketplace";
+import type { MarketplaceMachine } from "@/api/marketplace";
+import type { ApiError } from "@/api/types";
 
 export const Route = createFileRoute("/_authenticated/marketplace")({
   head: () => ({
@@ -29,73 +32,61 @@ type Machine = {
   premium?: boolean;
 };
 
-const MACHINES: Machine[] = [
-  {
-    id: "1",
-    name: "Benin-Alpha-Node",
-    rate: 3,
-    status: "online",
-    type: "GPU",
-    spec: "RTX 3060",
-    ram: "16 GB RAM",
-    location: "Cotonou, BJ",
-    premium: true,
-  },
-  {
-    id: "2",
-    name: "Lagos-Core-Edge",
-    rate: 1.5,
-    status: "online",
-    type: "CPU",
-    spec: "Xeon 8-Core",
-    ram: "32 GB RAM",
-    location: "Lagos, NG",
-  },
-  {
-    id: "3",
-    name: "Cotonou-Hub-Gamer",
-    rate: 1,
-    status: "busy",
-    type: "GPU",
-    spec: "GTX 1080",
-    ram: "8 GB RAM",
-    location: "Cotonou, BJ",
-  },
-  {
-    id: "4",
-    name: "Abidjan-ML-Rig",
-    rate: 4.5,
-    status: "online",
-    type: "GPU",
-    spec: "RTX 4080",
-    ram: "64 GB RAM",
-    location: "Abidjan, CI",
-    premium: true,
-  },
-  {
-    id: "5",
-    name: "Dakar-Batch-01",
-    rate: 0.8,
-    status: "online",
-    type: "CPU",
-    spec: "Ryzen 9",
-    ram: "24 GB RAM",
-    location: "Dakar, SN",
-  },
-];
+/**
+ * Adapte une machine renvoyée par le backend (GET /api/marketplace) au
+ * format attendu par cette page. Le backend ne renvoie que des machines
+ * actives ET en ligne, donc `status` vaut toujours "online" ici.
+ */
+function toViewMachine(m: MarketplaceMachine): Machine {
+  const hasGpu = Boolean(m.gpu);
+  return {
+    id: String(m.machine_id),
+    name: m.name,
+    rate: m.price_per_min,
+    status: m.is_online ? "online" : "busy",
+    type: hasGpu ? "GPU" : "CPU",
+    spec: (hasGpu ? m.gpu : m.cpu) || "Specs inconnues",
+    ram: m.ram || "RAM inconnue",
+    location:
+      [m.localisation_ville, m.localisation_pays].filter(Boolean).join(", ") ||
+      "Localisation inconnue",
+  };
+}
 
 function MarketplacePage() {
   const navigate = useNavigate();
+  const [machines, setMachines] = useState<Machine[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [typeFilter, setTypeFilter] = useState<"GPU" | "CPU" | "ALL">("GPU");
+  const [typeFilter, setTypeFilter] = useState<"GPU" | "CPU" | "ALL">("ALL");
   const [onlineOnly, setOnlineOnly] = useState(false);
   const [sortAsc, setSortAsc] = useState(false);
   const [search, setSearch] = useState("");
 
-  const selected = MACHINES.find((m) => m.id === selectedId) ?? null;
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setLoadError(null);
+    getMarketplaceMachines()
+      .then((data) => {
+        if (!cancelled) setMachines(data.map(toViewMachine));
+      })
+      .catch((err: ApiError) => {
+        if (!cancelled) setLoadError(err.message || "Impossible de charger le marketplace.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const selected = machines.find((m) => m.id === selectedId) ?? null;
 
   const list = useMemo(() => {
-    let result = MACHINES.filter((m) => {
+    let result = machines.filter((m) => {
       if (typeFilter !== "ALL" && m.type !== typeFilter) return false;
       if (onlineOnly && m.status !== "online") return false;
       if (search.trim()) {
@@ -111,7 +102,7 @@ function MarketplacePage() {
     });
     if (sortAsc) result = [...result].sort((a, b) => a.rate - b.rate);
     return result;
-  }, [typeFilter, onlineOnly, search, sortAsc]);
+  }, [machines, typeFilter, onlineOnly, search, sortAsc]);
 
   return (
     <AppShell>
@@ -128,16 +119,13 @@ function MarketplacePage() {
           </div>
 
           <div className="flex gap-2 flex-wrap">
-            <Chip
-              active={typeFilter === "GPU"}
-              onClick={() => setTypeFilter(typeFilter === "GPU" ? "ALL" : "GPU")}
-            >
+            <Chip active={typeFilter === "ALL"} onClick={() => setTypeFilter("ALL")}>
+              Tous
+            </Chip>
+            <Chip active={typeFilter === "GPU"} onClick={() => setTypeFilter("GPU")}>
               GPU Dédié
             </Chip>
-            <Chip
-              active={typeFilter === "CPU"}
-              onClick={() => setTypeFilter(typeFilter === "CPU" ? "ALL" : "CPU")}
-            >
+            <Chip active={typeFilter === "CPU"} onClick={() => setTypeFilter("CPU")}>
               CPU Uniquement
             </Chip>
             <Chip active={sortAsc} onClick={() => setSortAsc((v) => !v)}>
@@ -151,7 +139,14 @@ function MarketplacePage() {
             </Chip>
           </div>
 
-          {list.length === 0 ? (
+          {loading ? (
+            <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground text-sm">
+              <Loader2 className="size-4 animate-spin" />
+              Chargement des machines...
+            </div>
+          ) : loadError ? (
+            <div className="text-center py-16 text-sm text-destructive">{loadError}</div>
+          ) : list.length === 0 ? (
             <div className="text-center py-16 text-muted-foreground text-sm">
               Aucune machine ne correspond à votre recherche.
             </div>
@@ -224,7 +219,16 @@ function MarketplacePage() {
               </div>
 
               <button
-                onClick={() => navigate({ to: "/execution" })}
+                onClick={() =>
+                  navigate({
+                    to: "/execution",
+                    search: {
+                      machineId: Number(selected.id),
+                      machineName: selected.name,
+                      pricePerMin: selected.rate,
+                    },
+                  })
+                }
                 className="w-full premium-gradient text-white font-semibold rounded-lg py-3.5 flex items-center justify-center gap-2 shadow-lg hover:opacity-95"
               >
                 Utiliser cette machine

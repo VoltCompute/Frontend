@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { type ReactNode, useState, useRef, useEffect } from "react";
 import { useTheme } from "@/lib/theme";
+import { getStoredUser, logout as logoutApi } from "@/api/auth";
 import logo from "../assets/logo.png";
 
 const nav = [
@@ -70,6 +71,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   const avatarRef = useRef<HTMLDivElement>(null);
 
   const unread = NOTIFS.filter((n) => !n.read).length;
+  const user = getStoredUser();
+  const initials = user
+    ? `${user.first_name[0] ?? ""}${user.last_name[0] ?? ""}`.toUpperCase()
+    : "?";
+  const fullName = user ? `${user.first_name} ${user.last_name}` : "Utilisateur";
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -80,8 +86,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  function handleLogout() {
-    localStorage.removeItem("auth_token");
+  async function handleLogout() {
+    await logoutApi();
     navigate({ to: "/auth", replace: true });
   }
 
@@ -116,7 +122,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </nav>
         <div className="p-4">
           <button
-            onClick={() => navigate({ to: "/execution" })}
+            onClick={() => navigate({ to: "/marketplace" })}
             className="w-full premium-gradient text-white font-semibold rounded-lg py-3 flex items-center justify-center gap-2 shadow-lg hover:opacity-95 transition"
           >
             <Plus className="size-4" /> Nouveau Compute
@@ -209,14 +215,14 @@ export function AppShell({ children }: { children: ReactNode }) {
               }}
               className="size-10 rounded-full bg-gradient-to-br from-primary to-secondary grid place-items-center text-white text-sm font-semibold hover:opacity-90 transition"
             >
-              AK
+              {initials}
             </button>
 
             {avatarOpen && (
               <div className="absolute right-0 top-12 w-56 rounded-xl border border-border bg-surface shadow-2xl z-50 overflow-hidden">
                 <div className="px-4 py-3 border-b border-border">
-                  <div className="font-semibold text-sm">Akakpo Godwin</div>
-                  <div className="text-xs text-muted-foreground mt-0.5">benedoffice1@gmail.com</div>
+                  <div className="font-semibold text-sm">{fullName}</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">{user?.email ?? ""}</div>
                 </div>
                 <div className="py-1">
                   <Link
