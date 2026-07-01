@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { toast } from "sonner";
+import { QRCodeSVG } from "qrcode.react";
 import {
   initSession,
   uploadCode,
@@ -472,6 +473,12 @@ function ExecutionPage() {
                 <div className="space-y-3">
                   <div className="text-sm font-semibold">
                     Facture Lightning — {invoice.amount_sats} sats
+                  </div>
+                  {/* QR code de la facture (scannable avec un wallet Lightning) */}
+                  <div className="flex justify-center">
+                    <div className="bg-white rounded-lg p-3">
+                      <QRCodeSVG value={invoice.payment_request} size={180} level="M" />
+                    </div>
                   </div>
                   <div className="relative">
                     <pre className="bg-input border border-border rounded-lg px-4 py-3 text-xs font-mono overflow-x-auto pr-12 whitespace-pre-wrap break-all">
