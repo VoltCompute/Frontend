@@ -248,12 +248,12 @@ function MarketplacePage() {
 
                 <div className="flex items-baseline justify-between mt-1">
                   <span className="text-2xl font-bold">
-                    {Math.round(selected.rate * 60)} Sats{" "}
-                    <span className="text-sm font-normal text-muted-foreground">/ heure</span>
+                    {selected.rate} Sats{" "}
+                    <span className="text-sm font-normal text-muted-foreground">/ session (30 min)</span>
                   </span>
 
                   <span className="text-xs text-muted-foreground">
-                    ≈ {Math.round(selected.rate * 60 * 0.58)} FCFA
+                    ≈ {(selected.rate * 0.58).toFixed(1)} FCFA
                   </span>
                 </div>
               </div>
@@ -326,7 +326,7 @@ function MachineCard({
       <div className="flex items-start justify-between mb-1">
         <h3 className="font-semibold text-base">{machine.name}</h3>
         <span className="text-sm font-mono text-muted-foreground">
-          <span className="text-foreground font-semibold">{machine.rate}</span> Sats/min
+          <span className="text-foreground font-semibold">{machine.rate}</span> Sats / 30 min
         </span>
       </div>
       <div className="flex items-center gap-2 mb-5">

@@ -83,9 +83,8 @@ function MachinesPage() {
       );
       return;
     }
-    // price_per_min attendu par l'API : dérivé du prix de session saisi,
-    // jamais inférieur à 1 sat/min.
-    const pricePerMin = Math.max(1, Math.round(sessionPrice / SESSION_DURATION_MIN));
+    // price_per_min EST le prix par session (bloc de 30 min) : identité, pas de division.
+    const pricePerMin = sessionPrice;
     setAdding(true);
     try {
       const result = await addMachine({
@@ -227,7 +226,7 @@ function MachinesPage() {
 
               <div className="text-right shrink-0">
                 <div className="text-xs text-muted-foreground">Tarif</div>
-                <div className="font-bold">{m.price_per_min} Sats/min</div>
+                <div className="font-bold">{m.price_per_min} Sats / 30 min</div>
               </div>
 
               <div className="text-right shrink-0">
@@ -331,14 +330,9 @@ function MachinesPage() {
                     placeholder="ex: 150"
                     className="w-full bg-input border border-border rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
                   />
-                  {Number.isInteger(Number(form.price_session)) &&
-                    Number(form.price_session) > 0 && (
-                      <p className="text-xs text-muted-foreground mt-1.5">
-                        ≈{" "}
-                        {Math.max(1, Math.round(Number(form.price_session) / SESSION_DURATION_MIN))}{" "}
-                        Sats/min
-                      </p>
-                    )}
+                  <p className="text-xs text-muted-foreground mt-1.5">
+                    Prix facturé pour toute la session ({SESSION_DURATION_MIN} min).
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">

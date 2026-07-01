@@ -264,7 +264,7 @@ function ExecutionPage() {
         <div className="px-4 py-2 rounded-full bg-secondary/15 border border-secondary/30 text-sm">
           <span className="text-success">✓</span>{" "}
           <span className="font-semibold">{machineName ?? `Machine #${machineId}`}</span>
-          {pricePerMin !== undefined && <> — {pricePerMin} Sats/min</>}
+          {pricePerMin !== undefined && <> — {pricePerMin} Sats / 30 min</>}
         </div>
       </div>
 
@@ -374,7 +374,7 @@ function ExecutionPage() {
                   className="w-full mt-6 premium-gradient text-white font-semibold rounded-lg py-4 flex items-center justify-center gap-2.5 shadow-lg hover:opacity-95 text-base"
                 >
                   {pricePerMin !== undefined
-                    ? `⚡ Lancer l'exécution (${pricePerMin * 30} Sats)`
+                    ? `⚡ Lancer l'exécution (${pricePerMin} Sats)`
                     : "⚡ Lancer l'exécution"}
                 </button>
               )}
