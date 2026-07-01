@@ -29,6 +29,9 @@ type Machine = {
   spec: string;
   ram: string;
   location: string;
+  gpu: string | null;
+  cpu: string | null;
+  specs: Record<string, unknown> | null;
   premium?: boolean;
 };
 
@@ -50,7 +53,41 @@ function toViewMachine(m: MarketplaceMachine): Machine {
     location:
       [m.localisation_ville, m.localisation_pays].filter(Boolean).join(", ") ||
       "Localisation inconnue",
+    gpu: m.gpu,
+    cpu: m.cpu,
+    specs:
+      m.specs_json && typeof m.specs_json === "object"
+        ? (m.specs_json as Record<string, unknown>)
+        : null,
   };
+}
+
+/** Specs réelles détectées par l'agent (specs_json), avec repli sur gpu/cpu/ram. */
+function specRows(m: Machine): { label: string; value: string }[] {
+  const s = (m.specs ?? {}) as Record<string, unknown>;
+  const str = (v: unknown) => (v === null || v === undefined ? "" : String(v));
+  const gpu = str(s.gpu) || str(m.gpu);
+  const cpu = str(s.cpu_model) || str(m.cpu);
+  const rows: { label: string; value: string }[] = [
+    { label: "GPU", value: gpu || "Aucun GPU détecté" },
+    { label: "CPU", value: cpu || "Inconnu" },
+  ];
+  if (s.cpu_cores_physical != null || s.cpu_cores_logical != null) {
+    rows.push({
+      label: "Cœurs",
+      value: `${str(s.cpu_cores_physical) || "?"} physiques · ${str(s.cpu_cores_logical) || "?"} logiques`,
+    });
+  }
+  const ram = s.ram_total_gb != null ? `${str(s.ram_total_gb)} GB` : str(m.ram);
+  rows.push({ label: "RAM", value: ram || "Inconnue" });
+  if (s.os) {
+    rows.push({
+      label: "OS",
+      value: `${str(s.os)}${s.os_version ? " " + str(s.os_version).slice(0, 32) : ""}`.trim(),
+    });
+  }
+  rows.push({ label: "Localisation", value: m.location });
+  return rows;
 }
 
 function MarketplacePage() {
@@ -170,7 +207,7 @@ function MarketplacePage() {
             onClick={() => setSelectedId(null)}
           >
             <div
-              className="w-[500px] max-w-[95vw] card-surface p-6 rounded-xl shadow-2xl"
+              className="w-[420px] max-w-[92vw] max-h-[90vh] overflow-y-auto card-surface p-6 rounded-xl shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
               {/* HEADER */}
@@ -192,13 +229,16 @@ function MarketplacePage() {
               <h3 className="text-2xl font-bold mb-2">{selected.name}</h3>
 
               <p className="text-sm text-muted-foreground mb-5">
-                Node opéré par Volt-Infra {selected.location}. Haute performance pour IA et rendu
-                3D.
+                {selected.location} · {selected.status === "online" ? "En ligne" : "Hors ligne"}
               </p>
 
-              <div className="grid grid-cols-2 gap-3 mb-5">
-                <Stat label="Uptime" value="99.9%" />
-                <Stat label="Bande passante" value="1 Gbps" />
+              <div className="rounded-lg border border-border bg-surface-2 p-4 mb-5">
+                <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                  Spécifications détectées{selected.specs ? "" : " (agent non connecté)"}
+                </div>
+                {specRows(selected).map((r) => (
+                  <SpecRow key={r.label} k={r.label} v={r.value} />
+                ))}
               </div>
 
               <div className="rounded-lg border border-primary/40 bg-primary/5 p-4 mb-4">
@@ -353,9 +393,9 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 function SpecRow({ k, v }: { k: string; v: string }) {
   return (
-    <div className="flex justify-between py-2 border-b border-border/60 last:border-0 font-mono text-sm">
-      <span className="text-muted-foreground">{k}</span>
-      <span>{v}</span>
+    <div className="flex justify-between gap-4 py-2 border-b border-border/60 last:border-0 font-mono text-sm">
+      <span className="text-muted-foreground shrink-0">{k}</span>
+      <span className="text-right break-words">{v}</span>
     </div>
   );
 }
