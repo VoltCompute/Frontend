@@ -1,5 +1,5 @@
 import { apiClient } from "../client";
-import type { Transaction, WalletSummary } from "./wallet.types";
+import type { Transaction, WalletSummary, PlatformRevenue } from "./wallet.types";
 
 /** Solde courant en sats (GET /api/wallet/summary/{user_id}). */
 export async function getWalletSummary(userId: number): Promise<WalletSummary> {
@@ -33,4 +33,10 @@ export async function withdraw(
   await apiClient.get("/api/wallet/withdraw", {
     params: { user_id: userId, lightning_invoice: lightningInvoice },
   });
+}
+
+/** Commissions cumulées de la plateforme (GET /api/wallet/platform-revenue). Lecture seule. */
+export async function getPlatformRevenue(): Promise<PlatformRevenue> {
+  const { data } = await apiClient.get<PlatformRevenue>("/api/wallet/platform-revenue");
+  return data;
 }

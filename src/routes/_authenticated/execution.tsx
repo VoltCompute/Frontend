@@ -21,7 +21,6 @@ import {
   getPaymentStatus,
   getSessionResult,
   closeSession,
-  mockPay,
 } from "@/api/sessions";
 import type { InvoiceResult, SessionResult } from "@/api/sessions";
 import type { ApiError } from "@/api/types";
@@ -66,6 +65,8 @@ function ExecutionPage() {
   const [closing, setClosing] = useState(false);
   const [copied, setCopied] = useState(false);
   const [copiedOutput, setCopiedOutput] = useState(false);
+  const [showPaidPopup, setShowPaidPopup] = useState(false);
+  const [showDonePopup, setShowDonePopup] = useState(false);
 
   const accept = tab === "zip" ? ".zip" : ".py";
 
@@ -118,14 +119,21 @@ function ExecutionPage() {
     }
   }
 
+  // Transition unique déclenchée à la confirmation du paiement (auto ou manuel).
+  function onPaymentConfirmed() {
+    setShowPaidPopup(true);
+    toast.success("✅ Paiement réussi ! Exécution lancée sur la machine...");
+    appendLog("Paiement confirmé. Exécution lancée sur la machine...");
+    setPhase("running");
+  }
+
   async function checkPayment() {
     if (!sessionId) return;
     setCheckingPayment(true);
     try {
       const status = await getPaymentStatus(sessionId);
       if (status.paid) {
-        appendLog("Paiement confirmé. Exécution lancée sur la machine...");
-        setPhase("running");
+        onPaymentConfirmed();
       } else {
         toast.info("Paiement non détecté pour le moment.");
       }
@@ -136,16 +144,27 @@ function ExecutionPage() {
     }
   }
 
-  async function simulatePayment() {
-    if (!sessionId) return;
-    try {
-      await mockPay(sessionId);
-      toast.success("Paiement simulé (mode dev).");
-      await checkPayment();
-    } catch (err) {
-      toast.error((err as ApiError).message || "Simulation indisponible (LNbits en mode réel).");
-    }
-  }
+  // Polling AUTOMATIQUE du paiement pendant l'attente : dès que la facture est
+  // payée, l'exécution démarre toute seule (aucun clic requis).
+  useEffect(() => {
+    if (phase !== "awaiting_payment" || !sessionId) return;
+    let cancelled = false;
+    const interval = setInterval(async () => {
+      try {
+        const status = await getPaymentStatus(sessionId);
+        if (cancelled || !status.paid) return;
+        clearInterval(interval);
+        onPaymentConfirmed();
+      } catch {
+        // Erreur transitoire : on réessaie au prochain tick.
+      }
+    }, 3000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, sessionId]);
 
   function copyInvoice() {
     if (!invoice) return;
@@ -177,6 +196,12 @@ function ExecutionPage() {
               : "Exécution terminée avec succès.",
           );
           setPhase(r.status === "closed" ? "closed" : "completed");
+          setShowDonePopup(true);
+          if (r.execution_result === "error") {
+            toast.error("Exécution terminée avec une erreur.");
+          } else {
+            toast.success("✅ Exécution terminée avec succès !");
+          }
         }
       } catch {
         // Erreur de polling transitoire : on retentera au prochain tick.
@@ -298,7 +323,7 @@ function ExecutionPage() {
                 }}
                 icon={FileText}
               >
-                Fichier Python
+                Fichier
               </TabBtn>
               <TabBtn
                 active={tab === "zip"}
@@ -351,9 +376,9 @@ function ExecutionPage() {
                   <div className="size-14 rounded-full bg-surface-3 grid place-items-center mx-auto mb-4">
                     <Upload className="size-6 text-muted-foreground" />
                   </div>
-                  <div className="font-semibold text-lg">Déposez votre script ici</div>
+                  <div className="font-semibold text-lg">Déposez votre fichier ici</div>
                   <div className="text-sm text-muted-foreground mt-1">
-                    {tab === "zip" ? "Archive .zip (Max 50MB)" : "Script Python .py (Max 50MB)"}
+                    {tab === "zip" ? "Archive .zip (Max 50MB)" : "Fichier de code (Max 50MB)"}
                   </div>
                   <button
                     type="button"
@@ -442,6 +467,14 @@ function ExecutionPage() {
               </div>
             )}
 
+            {(phase === "completed" || phase === "closed") &&
+              result?.execution_result !== "error" &&
+              !result?.result_output && (
+                <div className="mt-3 text-muted-foreground italic">
+                  (Exécution réussie — le script n'a produit aucune sortie.)
+                </div>
+              )}
+
             {result?.execution_result === "error" && (
               <div className="mt-4 rounded-lg border border-destructive/40 bg-destructive/10 p-4">
                 <div className="flex items-start gap-2.5">
@@ -505,13 +538,6 @@ function ExecutionPage() {
                       {checkingPayment ? <Loader2 className="size-4 animate-spin" /> : null}
                       J'ai payé, vérifier
                     </button>
-                    <button
-                      onClick={simulatePayment}
-                      className="px-4 py-2 rounded-md bg-surface-2 border border-border text-sm font-medium hover:border-primary/50"
-                      title="Disponible uniquement si le backend tourne en mode mock LNbits"
-                    >
-                      Simuler le paiement (dev)
-                    </button>
                   </div>
                 </div>
               )}
@@ -550,6 +576,75 @@ function ExecutionPage() {
           )}
         </aside>
       </div>
+
+      {showPaidPopup && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+          onClick={() => setShowPaidPopup(false)}
+        >
+          <div
+            className="w-full max-w-sm card-surface rounded-2xl p-8 text-center shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="size-16 rounded-full bg-success/15 grid place-items-center mx-auto mb-4">
+              <CheckCircle2 className="size-9 text-success" />
+            </div>
+            <h2 className="text-2xl font-bold mb-2">Paiement réussi !</h2>
+            <p className="text-sm text-muted-foreground mb-6">
+              Votre code est lancé sur la machine. Les logs s'afficheront dans la
+              console dès la fin de l'exécution.
+            </p>
+            <button
+              onClick={() => setShowPaidPopup(false)}
+              className="w-full premium-gradient text-white font-semibold rounded-lg py-3 shadow-lg hover:opacity-95"
+            >
+              Voir l'exécution
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showDonePopup && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+          onClick={() => setShowDonePopup(false)}
+        >
+          <div
+            className="w-full max-w-sm card-surface rounded-2xl p-8 text-center shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {result?.execution_result === "error" ? (
+              <>
+                <div className="size-16 rounded-full bg-destructive/15 grid place-items-center mx-auto mb-4">
+                  <AlertCircle className="size-9 text-destructive" />
+                </div>
+                <h2 className="text-2xl font-bold mb-2">Exécution terminée</h2>
+                <p className="text-sm text-muted-foreground mb-6">
+                  Le script s'est terminé avec une erreur. Consultez la console pour les
+                  détails.
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="size-16 rounded-full bg-success/15 grid place-items-center mx-auto mb-4">
+                  <CheckCircle2 className="size-9 text-success" />
+                </div>
+                <h2 className="text-2xl font-bold mb-2">Exécution terminée !</h2>
+                <p className="text-sm text-muted-foreground mb-6">
+                  Votre code s'est exécuté avec succès. Le résultat s'affiche dans la
+                  console.
+                </p>
+              </>
+            )}
+            <button
+              onClick={() => setShowDonePopup(false)}
+              className="w-full premium-gradient text-white font-semibold rounded-lg py-3 shadow-lg hover:opacity-95"
+            >
+              Voir le résultat
+            </button>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }

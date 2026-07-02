@@ -6,8 +6,8 @@ import { fr } from "date-fns/locale";
 import { AppShell } from "@/components/AppShell";
 import { toast } from "sonner";
 import { getStoredUser } from "@/api/auth";
-import { getTransactions, getWalletSummary, withdraw } from "@/api/wallet";
-import type { Transaction } from "@/api/wallet";
+import { getTransactions, getWalletSummary, withdraw, getPlatformRevenue } from "@/api/wallet";
+import type { Transaction, PlatformRevenue } from "@/api/wallet";
 import type { ApiError } from "@/api/types";
 
 export const Route = createFileRoute("/_authenticated/wallet")({
@@ -28,6 +28,7 @@ function WalletPage() {
 
   const [balance, setBalance] = useState<number | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [revenue, setRevenue] = useState<PlatformRevenue | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -53,6 +54,10 @@ function WalletPage() {
     } finally {
       setLoading(false);
     }
+    // Revenus plateforme : chargé séparément → n'impacte JAMAIS le portefeuille si ça échoue.
+    getPlatformRevenue()
+      .then(setRevenue)
+      .catch(() => setRevenue(null));
   }
 
   useEffect(() => {
@@ -199,6 +204,33 @@ function WalletPage() {
           <SmallStat label="Sorties 24h" value={`${out24h} Sats`} tone="tertiary" />
         </div>
       </div>
+
+      {revenue && (
+        <div className="card-surface p-6 mb-5 border-primary/30">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div>
+              <div className="text-sm text-muted-foreground flex items-center gap-2">
+                <Landmark className="size-4 text-primary" /> Revenus plateforme · commission{" "}
+                {Math.round(revenue.commission_rate * 100)}%
+              </div>
+              <div className="mt-2 text-4xl font-bold premium-gradient-text">
+                {revenue.total_commission_sats.toLocaleString("fr-FR")} Sats
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">
+                prélevés sur {revenue.session_count} session
+                {revenue.session_count > 1 ? "s" : ""} · volume total{" "}
+                {revenue.total_volume_sats.toLocaleString("fr-FR")} Sats
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-sm text-muted-foreground">Reversé aux fournisseurs</div>
+              <div className="text-2xl font-bold text-success mt-1">
+                {revenue.total_net_to_providers_sats.toLocaleString("fr-FR")} Sats
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="card-surface p-6 mb-5">
         <div className="flex items-center justify-between mb-5">
