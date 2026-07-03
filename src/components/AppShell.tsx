@@ -1,13 +1,11 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import {
   Bell,
-  Moon,
   Plus,
   Store,
   Zap,
   Cpu,
   Wallet,
-  Sun,
   LogOut,
   User,
   Settings,
@@ -16,7 +14,6 @@ import {
   CreditCard,
 } from "lucide-react";
 import { type ReactNode, useState, useRef, useEffect } from "react";
-import { useTheme } from "@/lib/theme";
 import { getStoredUser, logout as logoutApi } from "@/api/auth";
 import logo from "../assets/logo.png";
 
@@ -61,7 +58,6 @@ const NOTIFS = [
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { theme, toggle } = useTheme();
   const path = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
 
@@ -132,14 +128,6 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <div className="flex-1 flex flex-col min-w-0">
         <header className="h-16 px-8 flex items-center justify-end gap-3 border-b border-border">
-          <button
-            onClick={toggle}
-            aria-label="Toggle theme"
-            className="size-10 grid place-items-center rounded-full hover:bg-accent text-muted-foreground hover:text-foreground transition"
-          >
-            {theme === "dark" ? <Sun className="size-5" /> : <Moon className="size-5" />}
-          </button>
-
           <button
             onClick={handleLogout}
             aria-label="Se déconnecter"

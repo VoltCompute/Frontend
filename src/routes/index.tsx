@@ -1,293 +1,81 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import {
-  Zap, Server, Shield, BarChart3, Cpu, Globe, Store,
-  Wallet, Rocket, Check, Menu, X, ArrowRight, Search,
-  Github, ExternalLink, Sun, Moon,
+  Zap, Shield, BarChart3, Cpu, Globe, Store,
+  Wallet, Menu, X, ArrowRight,
 } from "lucide-react";
-import { useTheme } from "@/lib/theme";
 import logo from "@/assets/logo.png";
+import heroIllustration from "@/assets/undraw_nakamoto_uy67.svg";
 
 export const Route = createFileRoute("/")({
   component: LandingPage,
 });
 
-/* ─── Scroll reveal ─────────────────────────────────────────── */
-function useReveal() {
-  useEffect(() => {
-    const obs = new IntersectionObserver(
-      (entries) => entries.forEach((e) => {
-        if (e.isIntersecting) { e.target.classList.add("revealed"); obs.unobserve(e.target); }
-      }),
-      { threshold: 0.1 },
-    );
-    document.querySelectorAll("[data-reveal]").forEach((el) => obs.observe(el));
-    return () => obs.disconnect();
-  }, []);
-}
 
-/* ─── Count-up ──────────────────────────────────────────────── */
-function CountUp({ to, suffix = "", prefix = "", decimals = 0, duration = 1800 }: {
-  to: number; suffix?: string; prefix?: string; decimals?: number; duration?: number;
-}) {
-  const [val, setVal] = useState(0);
-  const ref = useRef<HTMLSpanElement>(null);
-  const done = useRef(false);
 
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting && !done.current) {
-        done.current = true;
-        const start = performance.now();
-        const tick = (now: number) => {
-          const p = Math.min((now - start) / duration, 1);
-          const ease = 1 - Math.pow(1 - p, 3);
-          setVal(parseFloat((ease * to).toFixed(decimals)));
-          if (p < 1) requestAnimationFrame(tick);
-        };
-        requestAnimationFrame(tick);
-      }
-    }, { threshold: 0.5 });
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, [to, decimals, duration]);
-
-  return (
-    <span ref={ref}>
-      {prefix}{decimals > 0 ? val.toFixed(decimals) : val.toLocaleString("fr-FR")}{suffix}
-    </span>
-  );
-}
-
-/* ─── Dashboard Mockup ──────────────────────────────────────── */
-const MOCK_MACHINES = [
-  { name: "Benin-Alpha", spec: "RTX 3060", rate: "3",   active: true  },
-  { name: "Abidjan-ML",  spec: "RTX 4080", rate: "4.5", active: false },
-  { name: "Lagos-Core",  spec: "Xeon 8c",  rate: "1.5", active: false },
+/* ─── Data ──────────────────────────────────────────────────── */
+const stats = [
+  { value: "4250+", label: "Nodes en ligne" },
+  { value: "1.2M", label: "Sats routés" },
+  { value: "99.98%", label: "Uptime réseau" },
+  { value: "< 500ms", label: "Latence P95" },
 ];
 
-const BEZEL   = "oklch(0.20 0.022 270)";
-const BEZEL_D = "oklch(0.16 0.018 270)";
-const BEZEL_L = "oklch(0.26 0.022 270)";
+const features = [
+  {
+    icon: Zap,
+    title: "Paiement au satoshi près",
+    desc: "Chaque minute de calcul se règle instantanément en Sats via Lightning. Pas de carte, pas de délai de compensation, pas de frais cachés.",
+  },
+  {
+    icon: Globe,
+    title: "Ancré en Afrique de l'Ouest",
+    desc: "Nodes à Cotonou, Abidjan, Lagos, Accra, Dakar, Lomé. La latence reste locale — la disponibilité aussi.",
+  },
+  {
+    icon: Shield,
+    title: "Isolation par conteneur",
+    desc: "Chaque workload s'exécute dans son propre conteneur Docker. Aucune donnée ne fuit vers un autre utilisateur.",
+  },
+  {
+    icon: BarChart3,
+    title: "Console en direct",
+    desc: "Logs qui défilent, métriques CPU/GPU à la seconde. Vous voyez tourner votre calcul, littéralement.",
+  },
+];
 
-function DashboardMockup() {
-  return (
-    <div className="mockup-wrapper relative select-none w-full">
-      <div className="relative">
-
-        {/* ── Ambient glow ── */}
-        <div className="absolute pointer-events-none -z-10" style={{
-          inset: "-80px",
-          background: "radial-gradient(ellipse at 65% 40%, oklch(0.62 0.22 268 / 0.30), oklch(0.55 0.25 305 / 0.18) 55%, transparent 75%)",
-          filter: "blur(40px)",
-        }} />
-
-        {/* ── LAPTOP (stable — no ongoing animation) ── */}
-        <div className="relative">
-          {/* Screen bezel */}
-          <div
-            className="relative rounded-t-[22px] shadow-[0_32px_120px_-12px_rgba(0,0,0,0.85)]"
-            style={{ background: BEZEL, padding: "11px 11px 0 11px" }}
-          >
-            {/* Camera */}
-            <div className="absolute top-[6px] left-1/2 -translate-x-1/2 z-20">
-              <div className="size-[7px] rounded-full" style={{ background: BEZEL_D }} />
-            </div>
-
-            {/* Screen — 16:10 */}
-            <div className="rounded-t-[12px] overflow-hidden bg-background" style={{ aspectRatio: "16/10" }}>
-
-              {/* Browser chrome */}
-              <div className="h-9 bg-surface border-b border-border flex items-center px-4 gap-3 shrink-0">
-                <div className="flex gap-1.5">
-                  <span className="size-[9px] rounded-full bg-[#ff5f57]" />
-                  <span className="size-[9px] rounded-full bg-[#febc2e]" />
-                  <span className="size-[9px] rounded-full bg-[#28c840]" />
-                </div>
-                <div className="flex-1 flex justify-center">
-                  <div className="bg-background/80 rounded-md h-[20px] flex items-center px-3 w-56">
-                    <span className="text-[9px] text-muted-foreground font-mono">app.voltcompute.com</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* App layout */}
-              <div className="flex" style={{ height: "calc(100% - 36px)" }}>
-
-                {/* Sidebar */}
-                <div className="bg-surface border-r border-border flex flex-col shrink-0" style={{ width: "148px" }}>
-                  <div className="px-3 py-2.5 flex items-center gap-2 border-b border-border">
-                    <div className="size-[18px] rounded premium-gradient grid place-items-center shadow">
-                      <Zap className="size-[9px] text-white" strokeWidth={2.5} />
-                    </div>
-                    <span className="text-[10px] font-bold truncate">VoltCompute</span>
-                  </div>
-                  <nav className="p-1.5 space-y-px flex-1">
-                    {([
-                      { icon: Store,  label: "Marketplace", active: true  },
-                      { icon: Zap,    label: "Exécution",   active: false },
-                      { icon: Cpu,    label: "Machines",    active: false },
-                      { icon: Wallet, label: "Portefeuille",active: false },
-                    ] as const).map((it) => (
-                      <div
-                        key={it.label}
-                        className={`flex items-center gap-1.5 px-2 py-[7px] rounded text-[9px] font-medium ${it.active ? "bg-accent text-foreground border border-border" : "text-muted-foreground"}`}
-                      >
-                        <it.icon className="size-[11px] shrink-0" />
-                        {it.label}
-                      </div>
-                    ))}
-                  </nav>
-                  <div className="p-2">
-                    <div className="premium-gradient rounded text-[8px] font-bold py-[7px] text-white text-center">+ Nouveau</div>
-                  </div>
-                </div>
-
-                {/* Main content */}
-                <div className="flex-1 flex flex-col min-w-0">
-                  <div className="h-8 border-b border-border flex items-center justify-end px-3 gap-2 shrink-0">
-                    <div className="size-[20px] rounded-full bg-gradient-to-br from-primary to-secondary grid place-items-center text-white font-bold" style={{ fontSize: "7px" }}>AK</div>
-                  </div>
-                  <div className="flex-1 p-3 flex flex-col gap-2 overflow-hidden">
-                    <div className="h-7 bg-input border border-border rounded-md flex items-center px-2.5 gap-1.5 shrink-0">
-                      <Search className="size-[10px] text-muted-foreground shrink-0" />
-                      <span className="text-[8.5px] text-muted-foreground">Rechercher une machine...</span>
-                    </div>
-                    <div className="flex gap-1.5 shrink-0">
-                      <span className="px-2.5 py-[3px] rounded-full text-[7.5px] font-bold premium-gradient text-white shadow">GPU Dédié</span>
-                      <span className="px-2.5 py-[3px] rounded-full text-[7.5px] border border-border text-muted-foreground">CPU</span>
-                      <span className="px-2.5 py-[3px] rounded-full text-[7.5px] border border-border text-muted-foreground">En ligne</span>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2 shrink-0">
-                      {MOCK_MACHINES.map((m) => (
-                        <div key={m.name} className={`rounded-lg p-2.5 border ${m.active ? "border-primary bg-primary/5 shadow-[0_0_12px_-3px_var(--primary)]" : "border-border bg-card"}`}>
-                          <div className="text-[8px] font-semibold truncate mb-1.5">{m.name}</div>
-                          <div className="flex items-center gap-1 mb-1">
-                            <span className="size-[5px] rounded-full bg-success" />
-                            <span className="text-[7px] text-success">En ligne</span>
-                          </div>
-                          <div className="text-[7px] text-muted-foreground">{m.spec}</div>
-                          <div className="text-[9px] font-bold mt-1">{m.rate} <span className="text-[7px] font-normal text-muted-foreground">Sats/min</span></div>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="flex-1 rounded-lg border border-border bg-input p-2.5 font-mono min-h-0">
-                      <div className="text-[8px] text-muted-foreground mb-1.5">
-                        <span className="text-primary">root@volt</span>:~$ monitor --live
-                        <span className="cursor-blink text-primary ml-px">▌</span>
-                      </div>
-                      <div className="flex gap-px items-end h-7">
-                        {[3,6,4,8,5,9,7,4,6,8,5,3,7,5,8,6,9,4,7,5].map((h, i) => (
-                          <span key={i} style={{ height: `${h * 10}%` }} className="flex-1 premium-gradient rounded-sm opacity-75" />
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-              </div>
-            </div>
-          </div>
-
-          {/* Hinge + keyboard base */}
-          <div style={{ marginLeft: "-5%", width: "110%" }}>
-            <div className="h-[6px]" style={{ background: `linear-gradient(to bottom, ${BEZEL_L}, ${BEZEL})` }} />
-            <div
-              className="h-[24px] flex items-center justify-center"
-              style={{
-                background: `linear-gradient(to bottom, ${BEZEL}, ${BEZEL_D})`,
-                borderRadius: "0 0 16px 16px",
-                boxShadow: "0 20px 60px rgba(0,0,0,0.6)",
-              }}
-            >
-              <div className="w-20 h-[4px] rounded-full" style={{ background: BEZEL_L }} />
-            </div>
-          </div>
-
-          {/* Beam sweep */}
-          <div
-            className="absolute top-0 inset-x-0 overflow-hidden rounded-t-[22px] pointer-events-none"
-            style={{ height: "calc(100% - 30px)" }}
-          >
-            <div className="beam-sweep" />
-          </div>
-        </div>
-
-        {/* ── TABLET (floating) ── */}
-        <div className="tablet-float absolute z-20" style={{ bottom: "-80px", right: "0" }}>
-          {/* Glow */}
-          <div className="absolute -inset-5 -z-10" style={{
-            background: "oklch(0.55 0.25 305 / 0.35)",
-            filter: "blur(28px)",
-            borderRadius: "28px",
-          }} />
-
-          <div className="overflow-hidden" style={{
-            width: "196px",
-            borderRadius: "22px",
-            border: `6px solid ${BEZEL}`,
-            background: "var(--color-background)",
-            boxShadow: "0 32px 90px rgba(0,0,0,0.7)",
-          }}>
-            {/* Top bar + camera */}
-            <div className="flex items-center justify-center py-[8px]" style={{ background: BEZEL_D }}>
-              <div className="size-[7px] rounded-full" style={{ background: BEZEL }} />
-            </div>
-
-            <div className="p-4">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <div className="size-[20px] rounded premium-gradient grid place-items-center shadow">
-                    <Zap className="size-[10px] text-white" strokeWidth={2.5} />
-                  </div>
-                  <span className="text-[11px] font-bold">Portefeuille</span>
-                </div>
-                <div className="size-[22px] rounded-full bg-gradient-to-br from-primary to-secondary grid place-items-center text-white font-bold" style={{ fontSize: "8px" }}>AK</div>
-              </div>
-              <div className="rounded-xl premium-gradient p-4 mb-4 text-white">
-                <div className="text-[9px] opacity-70 mb-1">Solde Lightning</div>
-                <div className="text-[22px] font-bold leading-tight">4 250</div>
-                <div className="flex items-center justify-between mt-1">
-                  <span className="text-[10px] opacity-80">Satoshis</span>
-                  <span className="text-[9px] opacity-70">≈ 2 480 FCFA</span>
-                </div>
-              </div>
-              <div className="text-[8.5px] font-bold text-muted-foreground uppercase tracking-wider mb-2.5">Récent</div>
-              <div className="space-y-2.5">
-                {[
-                  { label: "Node Alpha · Gain",    amount: "+240 Sats", color: "text-success" },
-                  { label: "compute.py exécution", amount: "−18 Sats",  color: "text-destructive" },
-                  { label: "Node Beta · Gain",     amount: "+180 Sats", color: "text-success" },
-                ].map((tx) => (
-                  <div key={tx.label} className="flex items-center justify-between border-b border-border/50 pb-2 last:border-0">
-                    <span className="text-[9px] text-muted-foreground truncate flex-1 mr-2">{tx.label}</span>
-                    <span className={`text-[10px] font-bold shrink-0 ${tx.color}`}>{tx.amount}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Home bar */}
-            <div className="flex items-center justify-center py-[7px]" style={{ background: BEZEL_D }}>
-              <div className="w-14 h-[3px] rounded-full bg-foreground/20" />
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </div>
-  );
-}
+const steps = [
+  {
+    num: "01",
+    icon: Store,
+    title: "Choisissez un node",
+    desc: "Filtrez le marketplace par GPU, CPU, tarif ou localisation. Specs et latence sont visibles avant d'engager le moindre satoshi.",
+  },
+  {
+    num: "02",
+    icon: Cpu,
+    title: "Lancez le workload",
+    desc: "Script Python, JS, Shell ou repo GitHub complet — connectez, et la console s'anime dès le premier octet reçu.",
+  },
+  {
+    num: "03",
+    icon: Wallet,
+    title: "Payez en Sats",
+    desc: "Le node facture à la minute, réglé au fil de l'eau via Lightning. Pas d'avance de frais, pas de facture surprise.",
+  },
+  {
+    num: "04",
+    icon: Zap,
+    title: "Monétisez votre machine",
+    desc: "GPU ou CPU inactif : listez-le, fixez votre tarif en Sats/min, et laissez le réseau vous payer pendant que vous dormez.",
+  },
+];
 
 /* ─── Landing Page ──────────────────────────────────────────── */
 function LandingPage() {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const navigate = useNavigate();
-  const { theme, toggle } = useTheme();
-  useReveal();
 
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 24);
@@ -301,37 +89,31 @@ function LandingPage() {
     <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
 
       {/* ── NAVBAR ── */}
-      <header className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${
-        scrolled ? "bg-surface/85 backdrop-blur-xl border-b border-border shadow-lg" : ""
+      <header className={`fixed top-6 left-0 right-0 z-50 mx-auto max-w-[1500px] rounded-3xl border border-border/20 bg-surface/70 backdrop-blur-xl shadow-lg px-10 py-6 sm:px-14 lg:px-20 transition-all duration-300 ${
+        scrolled ? "top-4" : ""
       }`}>
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+        <div className="flex items-center justify-between">
           <Link to="/" className="flex items-center shrink-0">
-            <div className="h-10 w-36 overflow-hidden">
+            <div className="h-11 w-auto max-w-[min(220px,50vw)] overflow-hidden">
               <img src={logo} alt="VoltCompute" className="block w-full h-full object-contain object-left" />
             </div>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-8">
-            {[["#features", "Fonctionnalités"], ["#pricing", "Tarifs"], ["#about", "À propos"]].map(([href, label]) => (
-              <a key={href} href={href} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                {label}
-              </a>
-            ))}
+          <nav className="hidden md:flex items-center gap-10 text-base font-semibold text-muted-foreground">
+            <a href="#fonctionnalites" className="transition-colors hover:text-foreground">
+              Fonctionnalités
+            </a>
+            <a href="#comment-ca-marche" className="transition-colors hover:text-foreground">
+              Comment ça marche
+            </a>
+            <a href="#a-propos" className="transition-colors hover:text-foreground">
+              À propos
+            </a>
           </nav>
 
           <div className="hidden md:flex items-center gap-3">
-            <button
-              onClick={toggle}
-              aria-label="Toggle theme"
-              className="size-9 grid place-items-center rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition"
-            >
-              {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
-            </button>
-            <button onClick={goAuth} className="px-4 py-2 text-sm font-medium rounded-lg border border-border hover:border-primary/50 text-muted-foreground hover:text-foreground transition">
+            <button onClick={goAuth} className="px-7 py-3 text-base font-bold rounded-xl bg-primary text-white shadow-md shadow-primary/20 transition-all hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/25">
               Se connecter
-            </button>
-            <button onClick={goAuth} className="px-4 py-2 text-sm font-semibold rounded-lg premium-gradient text-white shadow hover:opacity-90 transition">
-              Commencer
             </button>
           </div>
 
@@ -341,341 +123,194 @@ function LandingPage() {
         </div>
 
         {menuOpen && (
-          <div className="md:hidden border-t border-border bg-surface/95 backdrop-blur-xl px-6 py-4 space-y-1">
-            {[["#features", "Fonctionnalités"], ["#pricing", "Tarifs"], ["#about", "À propos"]].map(([href, label]) => (
-              <a key={href} href={href} onClick={() => setMenuOpen(false)} className="block text-sm py-2.5 text-muted-foreground hover:text-foreground">{label}</a>
-            ))}
+          <div className="md:hidden border-t border-border bg-surface/95 backdrop-blur-xl px-6 py-4 space-y-1 mt-4 rounded-b-3xl">
+            <a href="#fonctionnalites" onClick={() => setMenuOpen(false)} className="block text-sm py-2.5 text-muted-foreground hover:text-foreground">Fonctionnalités</a>
+            <a href="#comment-ca-marche" onClick={() => setMenuOpen(false)} className="block text-sm py-2.5 text-muted-foreground hover:text-foreground">Comment ça marche</a>
+            <a href="#a-propos" onClick={() => setMenuOpen(false)} className="block text-sm py-2.5 text-muted-foreground hover:text-foreground">À propos</a>
             <div className="flex gap-3 pt-3">
               <button onClick={goAuth} className="flex-1 py-2.5 text-sm font-medium rounded-lg border border-border text-muted-foreground">Se connecter</button>
-              <button onClick={goAuth} className="flex-1 py-2.5 text-sm font-semibold rounded-lg premium-gradient text-white">Commencer</button>
             </div>
           </div>
         )}
       </header>
 
       {/* ── HERO ── */}
-      <section className="relative min-h-screen flex items-center px-6 py-12 overflow-hidden">
-        {/* Background blobs */}
-        <div className="pointer-events-none absolute inset-0">
-          <div className="blob-1 absolute -top-64 -left-64 size-[900px] rounded-full bg-primary/12 blur-[150px]" />
-          <div className="blob-2 absolute -bottom-48 -right-48 size-[700px] rounded-full bg-secondary/12 blur-[120px]" />
-          <div className="blob-3 absolute top-1/2 left-1/4 size-[500px] rounded-full bg-tertiary/8 blur-[100px]" />
-          <div className="dot-grid absolute inset-0 opacity-20" />
+      <section className="relative overflow-hidden px-6 pb-4 pt-28 sm:px-10 sm:pt-24 lg:px-14 lg:pt-28">
+        {/* Subtle background decoration */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="absolute -right-32 -top-32 h-[500px] w-[500px] rounded-full bg-gradient-to-br from-secondary/[0.06] to-transparent" />
+          <div className="absolute -left-20 bottom-0 h-[400px] w-[400px] rounded-full bg-gradient-to-tr from-primary/[0.04] to-transparent" />
         </div>
 
-        <div className="relative z-10 w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 xl:gap-24 items-center">
-
-          {/* ── LEFT : Texte ── */}
-          <div className="max-w-xl">
-            {/* <div className="hero-d1 inline-flex items-center gap-2 px-4 py-2 rounded-full border border-success/30 bg-success/10 text-success text-sm font-medium mb-8">
-              <span className="size-2 rounded-full bg-success pulse-dot" />
-              Réseau actif — 4 250 nodes en ligne
-            </div> */}
-
-            <h1 className="hero-d2 text-5xl sm:text-6xl font-bold tracking-tight leading-[1.1] mb-6">
-              La puissance de calcul
+        <div className="relative mx-auto grid max-w-[1500px] grid-cols-1 items-center gap-10 lg:grid-cols-2 lg:gap-16">
+          {/* Left — Text */}
+          <div className="hero-d2">
+            <h1 className="text-[2rem] font-extrabold leading-[1.18] tracking-tight text-primary sm:text-[2.5rem] md:text-[2.85rem] lg:text-[3.1rem]">
+              La puissance qui dormait,
               <br />
-              <span className="premium-gradient-text">décentralisée d'Afrique</span>
+              <span className="premium-gradient-text">s'active enfin.</span>
             </h1>
 
-            <p className="hero-d3 text-lg text-muted-foreground mb-10 leading-relaxed">
-              Louez de la puissance GPU/CPU à la minute ou monétisez votre machine inactive.
-              Paiement instantané en Satoshis via le Lightning Network.
+            <p className="mt-5 max-w-lg text-base leading-relaxed text-muted-foreground sm:text-lg">
+              Louez du GPU ou du CPU à la minute, ou transformez votre machine inactive
+              en revenu. Chaque paiement part et arrive en Satoshis, réglé par le
+              Lightning Network instantané, sans banque, sans friction.
             </p>
 
-            <div className="hero-d4 flex flex-col sm:flex-row gap-4 mb-10">
+            <div className="mt-8 flex flex-wrap items-center gap-3 hero-d4">
               <button
                 onClick={goAuth}
-                className="px-8 py-4 rounded-xl premium-gradient text-white font-semibold text-base shadow-lg hover:opacity-90 transition flex items-center justify-center gap-2"
+                className="group inline-flex items-center gap-2 border-2 rounded-xl bg-primary px-7 py-3.5 text-[0.95rem] font-semibold text-white shadow-lg shadow-primary/25 transition-all hover:bg-primary/90 hover:shadow-xl hover:shadow-primary/30"
               >
-                ⚡ Louer du compute <ArrowRight className="size-4" />
+                Louer de la puissance de calcul
               </button>
               <button
                 onClick={goAuth}
-                className="px-8 py-4 rounded-xl border border-border font-semibold text-base hover:border-primary/50 hover:bg-accent/40 transition text-center"
+                className="inline-flex items-center gap-2 rounded-xl border-2 border-border bg-surface px-3 py-3.5 text-[0.95rem] font-semibold text-primary transition-all hover:border-primary/30 hover:shadow-md"
               >
-                Monétiser ma machine
+                <ArrowRight className="h-4.5 w-4.5 transition-transform group-hover:translate-x-1" />
               </button>
             </div>
           </div>
 
-          {/* ── RIGHT : Device mockup ── */}
-          <div className="relative hidden lg:flex items-center justify-center pt-8 pb-28">
-            <DashboardMockup />
-          </div>
-
-        </div>
-      </section>
-
-      {/* ── STATS ── */}
-      <section className="border-y border-border bg-surface py-16" data-reveal>
-        <div className="max-w-5xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-10 text-center">
-          {[
-            { label: "Nodes actifs", el: <CountUp to={4250} suffix="+" /> },
-            { label: "Sats échangés", el: <CountUp to={1.2} suffix="M" decimals={1} /> },
-            { label: "Uptime réseau", el: <CountUp to={99.98} suffix="%" decimals={2} /> },
-            { label: "Latence max", el: <CountUp to={500} prefix="< " suffix="ms" /> },
-          ].map((s) => (
-            <div key={s.label}>
-              <div className="text-3xl sm:text-4xl font-bold premium-gradient-text">{s.el}</div>
-              <div className="text-sm text-muted-foreground mt-2">{s.label}</div>
+          {/* Right — Hero illustration */}
+          <div className="hero-d3 flex justify-center lg:justify-end mt-16 lg:mt-20">
+            <div className="relative">
+              <div className="absolute -inset-3" />
+              <img
+                src={heroIllustration}
+                alt="Illustration VoltCompute"
+                className="relative h-[clamp(400px,60vh,550px)] w-auto object-contain lg:max-h-[75vh]"
+              />
             </div>
-          ))}
+          </div>
+        </div>
+
+        {/* ──────────── STATS BAR ──────────── */}
+        <div className="hero-d5 relative mx-auto mt-14 max-w-[1500px] sm:mt-16">
+          <div className="grid grid-cols-2 gap-4 rounded-2xl border border-border bg-surface p-6 shadow-soft sm:p-8 md:grid-cols-4 md:gap-0 md:divide-x md:divide-border">
+            {stats.map((s, i) => (
+              <div key={s.label} className="flex flex-col items-center px-4 text-center">
+                <span className="text-3xl font-extrabold tracking-tight text-primary sm:text-4xl">
+                  {s.value}
+                </span>
+                <span className="mt-1.5 text-xs font-medium text-muted-foreground sm:text-sm">
+                  {s.label}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
-      {/* ── HOW IT WORKS ── */}
-      <section id="about" className="py-28 px-6">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-16" data-reveal>
-            <div className="text-xs font-semibold uppercase tracking-widest text-primary mb-3">Comment ça marche</div>
-            <h2 className="text-3xl sm:text-4xl font-bold leading-tight">
-              Lancez votre premier workload<br />en moins de 2 minutes
+      {/* ──────────── HOW IT WORKS ──────────── */}
+      <section
+        id="comment-ca-marche"
+        className="relative overflow-hidden bg-gradient-to-b from-surface-2 to-surface px-6 py-20 sm:px-10 sm:py-24 lg:px-14"
+      >
+        <div className="mx-auto max-w-[1500px]">
+          <div className="text-center">
+            <span className="text-xs font-semibold uppercase tracking-[0.15em] text-secondary">
+              Comment ça marche
+            </span>
+            <h2 className="mx-auto mt-3 max-w-xl text-[1.75rem] font-extrabold leading-tight text-primary sm:text-3xl lg:text-[2.25rem]">
+              Un parcours simple en 4 étapes
             </h2>
+            <p className="mx-auto mt-4 max-w-lg text-muted-foreground">
+              De la sélection du node à la première invoice réglée, notre plateforme vous accompagne à chaque
+              étape.
+            </p>
           </div>
 
-          <div className="relative grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[
-              { n: "01", icon: Server, title: "Choisissez un node", body: "Parcourez le marketplace, filtrez par GPU/CPU, tarif et localisation. Comparez les specs en un coup d'œil.", delay: "" },
-              { n: "02", icon: Rocket, title: "Lancez votre workload", body: "Uploadez votre script (.py, .js, .sh) ou connectez un repo GitHub. Démarrez en un clic depuis la console.", delay: "data-reveal-d1" },
-              { n: "03", icon: Zap, title: "Payez en Sats", body: "Paiement automatique à la minute via Lightning Network. Rapide, souverain et sans intermédiaire.", delay: "data-reveal-d2" },
-            ].map((step) => (
-              <div
-                key={step.n}
-                data-reveal
-                className={`card-surface p-7 hover:-translate-y-1 hover:border-primary/40 transition-all duration-300 ${step.delay}`}
-              >
-                <div className="font-mono text-xs font-bold text-primary/40 mb-5 tracking-widest">{step.n}</div>
-                <div className="size-12 rounded-xl premium-gradient grid place-items-center mb-5 shadow-lg">
-                  <step.icon className="size-5 text-white" />
+          <div className="relative mt-16 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
+            {/* Connecting line (desktop) */}
+            <div className="pointer-events-none absolute left-[12.5%] right-[12.5%] top-12 hidden h-[2px] bg-gradient-to-r from-transparent via-secondary/20 to-transparent lg:block" />
+
+            {steps.map((step, i) => (
+              <div key={step.num} className="relative flex flex-col items-center text-center">
+                <div className="relative z-10 flex h-24 w-24 items-center justify-center rounded-2xl bg-surface shadow-soft ring-1 ring-border">
+                  <step.icon className="h-9 w-9 text-primary" strokeWidth={1.5} />
                 </div>
-                <h3 className="text-lg font-bold mb-2">{step.title}</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">{step.body}</p>
+                <span className="mt-4 text-xs font-bold tracking-widest text-secondary">
+                  ÉTAPE {step.num}
+                </span>
+                <h3 className="mt-2 text-lg font-bold text-foreground">{step.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{step.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── FEATURES ── */}
-      <section id="features" className="py-28 px-6 bg-surface/50">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-16" data-reveal>
-            <div className="text-xs font-semibold uppercase tracking-widest text-secondary mb-3">Fonctionnalités</div>
-            <h2 className="text-3xl sm:text-4xl font-bold leading-tight">
-              Tout ce dont vous avez besoin<br />pour le calcul décentralisé
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {[
-              { icon: Zap,       color: "text-primary",   bg: "bg-primary/15",   title: "Lightning Network",       body: "Paiements instantanés en Satoshis. Pas de frais bancaires, pas d'attente." },
-              { icon: Globe,     color: "text-success",   bg: "bg-success/15",   title: "Réseau africain",         body: "Nodes localisés en Afrique de l'Ouest. Faible latence, forte disponibilité locale." },
-              { icon: Shield,    color: "text-secondary", bg: "bg-secondary/15", title: "Sécurisé",                body: "Chaque workload s'exécute dans un conteneur Docker isolé. Vos données restent privées." },
-              { icon: BarChart3, color: "text-tertiary",  bg: "bg-tertiary/15",  title: "Monitoring temps réel",   body: "Console live, métriques CPU/GPU, logs en streaming. Visualisez tout en direct." },
-              { icon: Wallet,    color: "text-primary",   bg: "bg-primary/15",   title: "Monétisez vos machines",  body: "Transformez votre GPU idle en source de revenus passifs payés en Satoshis." },
-              { icon: Cpu,       color: "text-success",   bg: "bg-success/15",   title: "Multi-workload",          body: "Python, JavaScript, Shell, repos GitHub. Tous les formats supportés nativement." },
-            ].map((f, i) => (
-              <div
-                key={i}
-                data-reveal
-                className="card-surface p-6 hover:-translate-y-1 hover:border-primary/40 transition-all duration-300 group"
-              >
-                <div className={`size-10 rounded-lg ${f.bg} grid place-items-center mb-4 group-hover:scale-110 transition-transform duration-300`}>
-                  <f.icon className={`size-5 ${f.color}`} />
-                </div>
-                <h3 className="font-semibold mb-2">{f.title}</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">{f.body}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── PRICING ── */}
-      <section id="pricing" className="py-28 px-6">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-16" data-reveal>
-            <div className="text-xs font-semibold uppercase tracking-widest text-primary mb-3">Tarifs</div>
-            <h2 className="text-3xl sm:text-4xl font-bold">Simple, transparent, en Sats</h2>
-            <p className="text-muted-foreground mt-3 text-lg">Payez uniquement ce que vous consommez. À la minute.</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[
-              {
-                name: "Starter", price: "0.5", fcfa: "≈ 0.29 FCFA/min",
-                desc: "Idéal pour les projets personnels et tests",
-                features: ["CPU Xeon standard", "8 GB RAM", "50 MB upload max", "Logs console", "Support communauté"],
-                cta: "Commencer gratuitement", highlight: false,
-              },
-              {
-                name: "Pro", price: "3", fcfa: "≈ 1.74 FCFA/min",
-                desc: "Pour les workloads ML et data science",
-                badge: "Populaire",
-                features: ["GPU dédié RTX 3060+", "32 GB RAM", "200 MB upload max", "Console live + métriques", "Support prioritaire", "Nodes premium"],
-                cta: "Choisir Pro", highlight: true,
-              },
-              {
-                name: "Enterprise", price: "10+", fcfa: "≈ 5.80+ FCFA/min",
-                desc: "Clusters haute performance sur mesure",
-                features: ["GPU A100 / H100", "128 GB RAM+", "Taille illimitée", "API dédiée", "SLA 99.99%", "Account manager"],
-                cta: "Nous contacter", highlight: false,
-              },
-            ].map((plan) => (
-              <div
-                key={plan.name}
-                data-reveal
-                className={`card-surface p-7 flex flex-col relative transition-all duration-300 ${
-                  plan.highlight
-                    ? "border-primary shadow-[0_0_0_1px_var(--primary),0_0_50px_-10px_var(--primary)]"
-                    : "hover:border-primary/30 hover:-translate-y-1"
-                }`}
-              >
-                {"badge" in plan && plan.badge && (
-                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full premium-gradient text-white text-xs font-bold shadow-lg">
-                    {plan.badge}
-                  </div>
-                )}
-                <div className="mb-5">
-                  <div className="font-bold text-xl mb-1">{plan.name}</div>
-                  <div className="text-sm text-muted-foreground">{plan.desc}</div>
-                </div>
-                <div className="mb-7">
-                  <span className="text-4xl font-bold">{plan.price}</span>
-                  <span className="text-muted-foreground text-sm ml-1.5">Sats/min</span>
-                  <div className="text-xs text-muted-foreground mt-1 font-mono">{plan.fcfa}</div>
-                </div>
-                <ul className="space-y-3 flex-1 mb-8">
-                  {plan.features.map((f) => (
-                    <li key={f} className="flex items-center gap-2.5 text-sm">
-                      <Check className="size-4 text-success shrink-0" /> {f}
-                    </li>
-                  ))}
-                </ul>
-                <button
-                  onClick={goAuth}
-                  className={`w-full py-3.5 rounded-xl font-semibold text-sm transition ${
-                    plan.highlight
-                      ? "premium-gradient text-white shadow-lg hover:opacity-90"
-                      : "border border-border hover:border-primary/50 hover:bg-accent/40"
-                  }`}
-                >
-                  {plan.cta}
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── TESTIMONIALS ── */}
-      {(() => {
-        const TESTIMONIALS = [
-          { initials: "KA", name: "Koffi A.",  role: "Développeur ML",  location: "Cotonou, BJ", from: "from-primary",   to: "to-secondary", quote: "J'ai réduit mes coûts de calcul de 60% en passant sur VoltCompute. Le paiement en Sats c'est un vrai plus pour moi." },
-          { initials: "FM", name: "Fatou M.",  role: "Data Scientist",  location: "Dakar, SN",   from: "from-secondary", to: "to-tertiary",  quote: "La console en direct et les métriques temps réel m'ont permis d'optimiser mes scripts comme jamais. Interface vraiment soignée." },
-          { initials: "EO", name: "Emeka O.",  role: "Opérateur Node",  location: "Lagos, NG",   from: "from-success",   to: "to-primary",   quote: "Mon RTX 3080 génère maintenant 4 000 Sats par jour en idle. Je recommande à tous les gamers africains." },
-        ];
-
-        function TestimonialsCarousel() {
-          const [active, setActive] = useState(0);
-          const [fading, setFading] = useState(false);
-
-          useEffect(() => {
-            const id = setInterval(() => {
-              setFading(true);
-              setTimeout(() => {
-                setActive((v) => (v + 1) % TESTIMONIALS.length);
-                setFading(false);
-              }, 350);
-            }, 4000);
-            return () => clearInterval(id);
-          }, []);
-
-          const go = (i: number) => {
-            if (i === active) return;
-            setFading(true);
-            setTimeout(() => { setActive(i); setFading(false); }, 350);
-          };
-
-          const t = TESTIMONIALS[active];
-
-          return (
-            <div className="max-w-2xl mx-auto px-6 text-center">
-              <div
-                className="card-surface p-8 sm:p-10 transition-all duration-350"
-                style={{ opacity: fading ? 0 : 1, transform: fading ? "translateY(10px)" : "translateY(0)" }}
-              >
-                <div className="flex justify-center gap-1 mb-6">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <span key={i} className="text-tertiary text-lg">★</span>
-                  ))}
-                </div>
-                <p className="text-base sm:text-lg text-foreground leading-relaxed mb-8">
-                  "{t.quote}"
-                </p>
-                <div className="flex items-center justify-center gap-3">
-                  <div className={`size-10 rounded-full bg-linear-to-br ${t.from} ${t.to} grid place-items-center text-white text-sm font-bold shrink-0`}>
-                    {t.initials}
-                  </div>
-                  <div className="text-left">
-                    <div className="font-semibold text-sm">{t.name}</div>
-                    <div className="text-xs text-muted-foreground">{t.role} · {t.location}</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Dots */}
-              <div className="flex justify-center gap-2 mt-6">
-                {TESTIMONIALS.map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => go(i)}
-                    className={`rounded-full transition-all duration-300 ${i === active ? "w-6 h-2 premium-gradient" : "w-2 h-2 bg-border hover:bg-muted-foreground"}`}
-                  />
-                ))}
-              </div>
-            </div>
-          );
-        }
-
-        return (
-          <section className="py-28 bg-surface/50" data-reveal>
-            <div className="text-center mb-12 px-6">
-              <div className="text-xs font-semibold uppercase tracking-widest text-tertiary mb-3">Témoignages</div>
-              <h2 className="text-3xl sm:text-4xl font-bold">Ils font confiance à VoltCompute</h2>
-            </div>
-            <TestimonialsCarousel />
-          </section>
-        );
-      })()}
-
-      {/* ── FINAL CTA ── */}
-      <section className="py-28 px-6">
-        <div className="max-w-4xl mx-auto" data-reveal>
-          <div className="relative overflow-hidden rounded-3xl premium-gradient p-14 sm:p-20 text-center">
-            <div className="pointer-events-none absolute inset-0">
-              <div className="blob-1 absolute -top-24 -left-24 size-72 rounded-full bg-white/10 blur-3xl" />
-              <div className="blob-2 absolute -bottom-24 -right-24 size-72 rounded-full bg-white/10 blur-3xl" />
-            </div>
-            <div className="relative z-10">
-              <h2 className="text-3xl sm:text-5xl font-bold text-white mb-5 leading-tight">
-                Prêt à rejoindre<br />le réseau ?
+      {/* ──────────── FEATURES / "Our Services" ──────────── */}
+      <section id="fonctionnalites" className="px-6 py-20 sm:px-10 sm:py-24 lg:px-14">
+        <div className="mx-auto max-w-[1500px]">
+          <div className="grid grid-cols-1 items-end gap-8 lg:grid-cols-2">
+            <div>
+              <span className="text-xs font-semibold uppercase tracking-[0.15em] text-secondary">
+                Nos fonctionnalités
+              </span>
+              <h2 className="mt-3 text-[1.75rem] font-extrabold leading-tight text-primary sm:text-3xl lg:text-[2.25rem]">
+                Des outils puissants
+                <br />
+                pour votre compute
               </h2>
-              <p className="text-white/70 text-lg mb-10 max-w-xl mx-auto leading-relaxed">
-                Commencez à louer du compute ou monétisez votre machine dès aujourd'hui.
-                Inscription gratuite, paiement à la minute.
+            </div>
+            <p className="max-w-md text-muted-foreground lg:ml-auto lg:text-right">
+              Notre plateforme combine puissance de calcul distribuée, paiement instantané en Lightning
+              et isolation par conteneur pour une expérience de compute sans friction.
+            </p>
+          </div>
+
+          <div className="mt-14 grid grid-cols-1 gap-6 sm:grid-cols-2">
+            {features.map((f, i) => (
+              <div key={f.title} className="group relative flex flex-col rounded-2xl border border-border bg-surface p-7 shadow-soft transition-all duration-300 hover:-translate-y-1 hover:border-secondary/30 hover:shadow-lift sm:p-8">
+                <div className="mb-5 flex items-start justify-between">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/[0.06] text-primary transition-colors group-hover:bg-primary group-hover:text-white">
+                    <f.icon className="h-6 w-6" strokeWidth={1.75} />
+                  </div>
+                  <button
+                    onClick={goAuth}
+                    className="flex h-10 w-10 items-center justify-center rounded-full border border-border text-muted-foreground transition-all group-hover:border-primary group-hover:bg-primary group-hover:text-white"
+                  >
+                    <ArrowRight className="h-4 w-4" />
+                  </button>
+                </div>
+                <h3 className="text-lg font-bold text-foreground">{f.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{f.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ──────────── CTA SECTION ──────────── */}
+      <section className="px-6 py-20 sm:px-10 sm:py-24 lg:px-14">
+        <div className="mx-auto max-w-[1500px]">
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary via-primary to-[#15294a] px-10 py-16 text-center sm:px-20 sm:py-24">
+            {/* Decorative elements */}
+            <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-secondary/10" />
+            <div className="pointer-events-none absolute -bottom-10 -left-10 h-48 w-48 rounded-full bg-secondary/[0.06]" />
+
+            <div className="relative">
+              <h2 className="text-2xl font-extrabold text-primary-foreground sm:text-3xl lg:text-4xl">
+                Prêt à activer votre puissance de calcul ?
+              </h2>
+              <p className="mx-auto mt-4 max-w-lg text-muted-foreground">
+                Rejoignez le réseau VoltCompute et commencez dès aujourd'hui à louer du compute
+                ou monétiser votre machine — tout réglé en Satoshis.
               </p>
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
                 <button
                   onClick={goAuth}
-                  className="w-full sm:w-auto px-8 py-4 rounded-xl bg-white text-always-dark font-bold text-base hover:bg-white/90 transition shadow-xl flex items-center justify-center gap-2"
+                  className="group inline-flex items-center gap-2 rounded-xl bg-surface px-8 py-3.5 text-[0.95rem] font-bold text-primary shadow-lg transition-all hover:-translate-y-0.5 hover:shadow-xl"
                 >
-                  ⚡ Créer mon compte <ArrowRight className="size-4" />
+                  Créer un compte
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </button>
                 <button
                   onClick={goAuth}
-                  className="w-full sm:w-auto px-8 py-4 rounded-xl border border-white/30 text-white font-semibold text-base hover:bg-white/10 transition"
+                  className="inline-flex items-center gap-2 rounded-xl border-2 border-white/20 px-8 py-3.5 text-[0.95rem] font-bold text-primary-foreground transition-all hover:border-white/40 hover:bg-white/5"
                 >
                   Se connecter
                 </button>
@@ -685,49 +320,74 @@ function LandingPage() {
         </div>
       </section>
 
-      {/* ── FOOTER ── */}
-      <footer className="border-t border-border bg-surface py-14 px-6">
-        <div className="max-w-5xl mx-auto">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-10 mb-12">
-            <div className="col-span-2 md:col-span-1">
-              <div className="mb-4">
-                <div className="h-9 w-32 overflow-hidden">
-                  <img src={logo} alt="VoltCompute" className="block w-full h-full object-contain object-left" />
-                </div>
+      {/* ──────────── FOOTER ──────────── */}
+      <footer id="a-propos" className="border-t border-border bg-surface px-6 py-10 sm:px-10 sm:py-12 lg:px-14">
+        <div className="mx-auto max-w-[1500px]">
+          <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-4">
+            {/* Brand */}
+            <div className="sm:col-span-2 lg:col-span-1">
+              <div className="h-9 w-auto max-w-[180px] overflow-hidden">
+                <img src={logo} alt="VoltCompute" className="block w-full h-full object-contain object-left" />
               </div>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Le calcul décentralisé d'Afrique de l'Ouest, payé en Satoshis via le Lightning Network.
+              <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted-foreground">
+                Réseau de calcul distribué en Afrique de l'Ouest, réglé en Satoshis via Lightning Network.
               </p>
             </div>
-            {[
-              { title: "Produit", links: ["Marketplace", "Exécution", "Mes Machines", "Portefeuille"] },
-              { title: "Ressources", links: ["Documentation", "API", "Status", "Blog"] },
-              { title: "Légal", links: ["Confidentialité", "Conditions", "Cookies"] },
-            ].map((col) => (
-              <div key={col.title}>
-                <div className="font-semibold text-sm mb-4">{col.title}</div>
-                <ul className="space-y-3">
-                  {col.links.map((l) => (
-                    <li key={l}>
-                      <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">{l}</a>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+
+            {/* Navigation */}
+            <div>
+              <h4 className="text-sm font-bold text-foreground">Navigation</h4>
+              <ul className="mt-3 space-y-2.5 text-sm text-muted-foreground">
+                <li>
+                  <a href="#fonctionnalites" className="transition-colors hover:text-foreground">
+                    Fonctionnalités
+                  </a>
+                </li>
+                <li>
+                  <a href="#comment-ca-marche" className="transition-colors hover:text-foreground">
+                    Comment ça marche
+                  </a>
+                </li>
+                <li>
+                  <a href="#a-propos" className="transition-colors hover:text-foreground">
+                    À propos
+                  </a>
+                </li>
+              </ul>
+            </div>
+
+            {/* Accès */}
+            <div>
+              <h4 className="text-sm font-bold text-foreground">Accès</h4>
+              <ul className="mt-3 space-y-2.5 text-sm text-muted-foreground">
+                <li>
+                  <button onClick={goAuth} className="transition-colors hover:text-foreground">
+                    Connexion
+                  </button>
+                </li>
+                <li>
+                  <button onClick={goAuth} className="transition-colors hover:text-foreground">
+                    Inscription
+                  </button>
+                </li>
+              </ul>
+            </div>
+
+            {/* Projet */}
+            <div>
+              <h4 className="text-sm font-bold text-foreground">À propos</h4>
+              <ul className="mt-3 space-y-2.5 text-sm text-muted-foreground">
+                <li>BMM Hack — G3N3S1S</li>
+                <li>Réseau ouest-africain</li>
+              </ul>
+            </div>
           </div>
 
-          <div className="pt-8 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-border pt-6 sm:flex-row">
             <p className="text-xs text-muted-foreground">
-              © {new Date().getFullYear()} VoltCompute. Tous droits réservés.
+              © {new Date().getFullYear()} VoltCompute — Réseau de calcul distribué
             </p>
-            <div className="flex items-center gap-2">
-              {[Github, ExternalLink, ExternalLink].map((Icon, i) => (
-                <a key={i} href="#" className="size-8 grid place-items-center rounded-full hover:bg-accent text-muted-foreground hover:text-foreground transition">
-                  <Icon className="size-4" />
-                </a>
-              ))}
-            </div>
+            <p className="font-mono text-[11px] text-muted-foreground/70">v1.0.0</p>
           </div>
         </div>
       </footer>
