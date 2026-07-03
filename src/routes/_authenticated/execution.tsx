@@ -10,6 +10,10 @@ import {
   Copy,
   Check,
   CheckCircle2,
+  Fingerprint,
+  ShieldAlert,
+  ChevronDown,
+  Zap,
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { toast } from "sonner";
@@ -49,6 +53,27 @@ export const Route = createFileRoute("/_authenticated/execution")({
 type Phase =
   "idle" | "launching" | "awaiting_payment" | "running" | "completed" | "closed" | "error";
 
+// Phases pour lesquelles une session est encore "active" (pas encore clôturée) :
+// c'est ce qui doit survivre à un rechargement de page.
+const PERSISTABLE_PHASES: Phase[] = ["awaiting_payment", "running", "completed"];
+
+type PersistedSession = { sessionId: number; invoice: InvoiceResult | null; phase: Phase };
+
+function sessionStorageKey(machineId: number) {
+  return `volt_session_${machineId}`;
+}
+
+function loadPersistedSession(machineId: number | undefined): PersistedSession | null {
+  if (!machineId) return null;
+  try {
+    const raw = localStorage.getItem(sessionStorageKey(machineId));
+    if (!raw) return null;
+    return JSON.parse(raw) as PersistedSession;
+  } catch {
+    return null;
+  }
+}
+
 function ExecutionPage() {
   const { machineId, machineName, pricePerMin } = Route.useSearch();
 
@@ -56,17 +81,20 @@ function ExecutionPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [phase, setPhase] = useState<Phase>("idle");
-  const [sessionId, setSessionId] = useState<number | null>(null);
-  const [invoice, setInvoice] = useState<InvoiceResult | null>(null);
+  const [phase, setPhase] = useState<Phase>(() => loadPersistedSession(machineId)?.phase ?? "idle");
+  const [sessionId, setSessionId] = useState<number | null>(
+    () => loadPersistedSession(machineId)?.sessionId ?? null,
+  );
+  const [invoice, setInvoice] = useState<InvoiceResult | null>(
+    () => loadPersistedSession(machineId)?.invoice ?? null,
+  );
   const [result, setResult] = useState<SessionResult | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
   const [checkingPayment, setCheckingPayment] = useState(false);
   const [closing, setClosing] = useState(false);
   const [copied, setCopied] = useState(false);
   const [copiedOutput, setCopiedOutput] = useState(false);
-  const [showPaidPopup, setShowPaidPopup] = useState(false);
-  const [showDonePopup, setShowDonePopup] = useState(false);
+  const [invoiceOpen, setInvoiceOpen] = useState(true);
 
   const accept = tab === "zip" ? ".zip" : ".py";
 
@@ -110,6 +138,7 @@ function ExecutionPage() {
       const inv = await requestInvoice(init.session_id);
       setInvoice(inv);
       appendLog(`Facture générée : ${inv.amount_sats} sats. En attente du paiement...`);
+      setInvoiceOpen(true);
       setPhase("awaiting_payment");
     } catch (err) {
       const message = (err as ApiError).message || "Échec du lancement.";
@@ -121,7 +150,6 @@ function ExecutionPage() {
 
   // Transition unique déclenchée à la confirmation du paiement (auto ou manuel).
   function onPaymentConfirmed() {
-    setShowPaidPopup(true);
     toast.success("✅ Paiement réussi ! Exécution lancée sur la machine...");
     appendLog("Paiement confirmé. Exécution lancée sur la machine...");
     setPhase("running");
@@ -166,6 +194,34 @@ function ExecutionPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, sessionId]);
 
+  // Persiste la session tant qu'elle n'est pas clôturée (localStorage), pour
+  // qu'un rechargement de page (F5) ne fasse pas disparaître la facture ni la
+  // progression en cours. Nettoyé automatiquement à la clôture/erreur/idle.
+  useEffect(() => {
+    if (!machineId) return;
+    const key = sessionStorageKey(machineId);
+    if (sessionId && PERSISTABLE_PHASES.includes(phase)) {
+      localStorage.setItem(key, JSON.stringify({ sessionId, invoice, phase }));
+    } else {
+      localStorage.removeItem(key);
+    }
+  }, [machineId, sessionId, invoice, phase]);
+
+  // Après un rechargement en phase "completed", le résultat lui-même (sortie,
+  // preuve d'intégrité...) n'est pas persisté côté client — on le re-fetch une
+  // fois depuis le backend, qui reste la source de vérité.
+  useEffect(() => {
+    if (phase === "completed" && sessionId && !result) {
+      getSessionResult(sessionId)
+        .then(setResult)
+        .catch(() => {
+          // Tant pis : le polling normal (phase running) ne s'applique pas ici,
+          // l'utilisateur peut rouvrir la page pour retenter.
+        });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function copyInvoice() {
     if (!invoice) return;
     navigator.clipboard.writeText(invoice.payment_request);
@@ -196,7 +252,6 @@ function ExecutionPage() {
               : "Exécution terminée avec succès.",
           );
           setPhase(r.status === "closed" ? "closed" : "completed");
-          setShowDonePopup(true);
           if (r.execution_result === "error") {
             toast.error("Exécution terminée avec une erreur.");
           } else {
@@ -217,10 +272,10 @@ function ExecutionPage() {
     if (!sessionId) return;
     setClosing(true);
     try {
-      const res = await closeSession(sessionId);
+      await closeSession(sessionId);
       toast.success(
         phase === "completed"
-          ? `Session clôturée. ${res.amount_credited} sats versés au fournisseur.`
+          ? "Session clôturée. Fonds versés au fournisseur."
           : "Exécution annulée et session clôturée.",
       );
       setPhase("closed");
@@ -271,14 +326,22 @@ function ExecutionPage() {
   // dès le lancement, il cède toute la place à la console/résultat.
   const formVisible = phase === "idle";
   const hasFooterAction =
-    phase === "awaiting_payment" ||
-    phase === "running" ||
-    phase === "completed" ||
-    phase === "closed" ||
-    phase === "error";
+    phase === "running" || phase === "completed" || phase === "closed" || phase === "error";
 
   return (
     <AppShell>
+      {phase === "awaiting_payment" && invoice && (
+        <InvoiceWidget
+          invoice={invoice}
+          open={invoiceOpen}
+          onToggle={() => setInvoiceOpen((v) => !v)}
+          copied={copied}
+          onCopy={copyInvoice}
+          checkingPayment={checkingPayment}
+          onCheckPayment={checkPayment}
+        />
+      )}
+
       <div className="flex items-start justify-between flex-wrap gap-3 mb-8">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Configuration d'Exécution</h1>
@@ -409,14 +472,14 @@ function ExecutionPage() {
 
         <aside
           aria-hidden={formVisible}
-          className="min-w-0 overflow-hidden card-surface flex flex-col min-h-[600px] bg-[oklch(0.10_0.02_270)] dark:bg-[oklch(0.10_0.02_270)]"
+          className="min-w-0 overflow-hidden card-surface flex flex-col min-h-[600px] bg-[oklch(0.17_0.02_270)] dark:bg-[oklch(0.17_0.02_270)]"
           style={{
             opacity: formVisible ? 0 : 1,
             pointerEvents: formVisible ? "none" : "auto",
             transition: formVisible ? "opacity 200ms ease-in" : "opacity 400ms ease-out 150ms",
           }}
         >
-          <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
             <div className="flex items-center gap-2 text-sm">
               <span
                 className={`size-2 rounded-full pulse-dot ${
@@ -425,9 +488,9 @@ function ExecutionPage() {
                     : "bg-destructive text-destructive"
                 }`}
               />
-              <span className="font-semibold">Console</span>
+              <span className="font-semibold text-white/90">Console</span>
             </div>
-            <div className="text-xs font-mono px-3 py-1 rounded-md bg-surface-3 border border-border">
+            <div className="text-xs font-mono px-3 py-1 rounded-md bg-white/10 border border-white/10 text-white/70">
               {sessionId ? `Session #${sessionId} · ${phase}` : "Aucune session"}
             </div>
           </div>
@@ -443,35 +506,49 @@ function ExecutionPage() {
             ))}
 
             {phase === "running" && (
-              <div className="flex items-center gap-2 text-muted-foreground pt-2">
+              <div className="flex items-center gap-2 text-white/50 pt-2">
                 <Loader2 className="size-3.5 animate-spin" /> En attente du résultat...
               </div>
             )}
 
             {result?.result_output && (
-              <div className="relative mt-3">
-                <pre className="whitespace-pre-wrap text-foreground border border-border rounded-lg p-3 pr-12 bg-surface-2">
+              <div className="relative mt-4">
+                <pre
+                  className={`whitespace-pre-wrap text-foreground border border-border rounded-lg p-3 bg-surface-2 ${
+                    result.result_hash ? "pr-28" : "pr-12"
+                  }`}
+                >
                   {result.result_output}
                 </pre>
-                <button
-                  onClick={copyOutput}
-                  className="absolute top-2 right-2 p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground"
-                  title="Copier la sortie"
-                >
-                  {copiedOutput ? (
-                    <Check className="size-4 text-success" />
-                  ) : (
-                    <Copy className="size-4" />
-                  )}
-                </button>
+                <div className="absolute top-2 right-2 flex items-center gap-1.5">
+                  {result.result_hash && <IntegrityBadge result={result} />}
+                  <button
+                    onClick={copyOutput}
+                    className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground"
+                    title="Copier la sortie"
+                  >
+                    {copiedOutput ? (
+                      <Check className="size-4 text-success" />
+                    ) : (
+                      <Copy className="size-4" />
+                    )}
+                  </button>
+                </div>
               </div>
             )}
 
             {(phase === "completed" || phase === "closed") &&
               result?.execution_result !== "error" &&
               !result?.result_output && (
-                <div className="mt-3 text-muted-foreground italic">
-                  (Exécution réussie — le script n'a produit aucune sortie.)
+                <div className="relative mt-4">
+                  <div className="text-white/50 italic border border-white/10 rounded-lg p-3 bg-white/5">
+                    (Exécution réussie — le script n'a produit aucune sortie.)
+                  </div>
+                  {result?.result_hash && (
+                    <div className="absolute top-2 right-2">
+                      <IntegrityBadge result={result} />
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -482,9 +559,7 @@ function ExecutionPage() {
                   <div className="space-y-1">
                     <div className="font-semibold text-destructive">Le script a échoué</div>
                     {result.error_message && (
-                      <div className="text-xs text-muted-foreground leading-5">
-                        {result.error_message}
-                      </div>
+                      <div className="text-xs text-white/60 leading-5">{result.error_message}</div>
                     )}
                   </div>
                 </div>
@@ -497,51 +572,11 @@ function ExecutionPage() {
               </div>
             )}
 
-            <div className="text-muted-foreground pt-2">_</div>
+            <div className="text-white/30 pt-2">_</div>
           </div>
 
           {hasFooterAction && (
-            <div className="border-t border-border px-5 py-4 font-sans">
-              {phase === "awaiting_payment" && invoice && (
-                <div className="space-y-3">
-                  <div className="text-sm font-semibold">
-                    Facture Lightning — {invoice.amount_sats} sats
-                  </div>
-                  {/* QR code de la facture (scannable avec un wallet Lightning) */}
-                  <div className="flex justify-center">
-                    <div className="bg-white rounded-lg p-3">
-                      <QRCodeSVG value={invoice.payment_request} size={180} level="M" />
-                    </div>
-                  </div>
-                  <div className="relative">
-                    <pre className="bg-input border border-border rounded-lg px-4 py-3 text-xs font-mono overflow-x-auto pr-12 whitespace-pre-wrap break-all">
-                      {invoice.payment_request}
-                    </pre>
-                    <button
-                      onClick={copyInvoice}
-                      className="absolute top-2 right-2 p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground"
-                      title="Copier"
-                    >
-                      {copied ? (
-                        <Check className="size-4 text-success" />
-                      ) : (
-                        <Copy className="size-4" />
-                      )}
-                    </button>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={checkPayment}
-                      disabled={checkingPayment}
-                      className="px-4 py-2 rounded-md premium-gradient text-white text-sm font-medium hover:opacity-95 disabled:opacity-60 inline-flex items-center gap-2"
-                    >
-                      {checkingPayment ? <Loader2 className="size-4 animate-spin" /> : null}
-                      J'ai payé, vérifier
-                    </button>
-                  </div>
-                </div>
-              )}
-
+            <div className="border-t border-white/10 px-5 py-4 font-sans">
               {(phase === "completed" || phase === "running") && (
                 <button
                   onClick={handleClose}
@@ -576,76 +611,211 @@ function ExecutionPage() {
           )}
         </aside>
       </div>
-
-      {showPaidPopup && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
-          onClick={() => setShowPaidPopup(false)}
-        >
-          <div
-            className="w-full max-w-sm card-surface rounded-2xl p-8 text-center shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="size-16 rounded-full bg-success/15 grid place-items-center mx-auto mb-4">
-              <CheckCircle2 className="size-9 text-success" />
-            </div>
-            <h2 className="text-2xl font-bold mb-2">Paiement réussi !</h2>
-            <p className="text-sm text-muted-foreground mb-6">
-              Votre code est lancé sur la machine. Les logs s'afficheront dans la
-              console dès la fin de l'exécution.
-            </p>
-            <button
-              onClick={() => setShowPaidPopup(false)}
-              className="w-full premium-gradient text-white font-semibold rounded-lg py-3 shadow-lg hover:opacity-95"
-            >
-              Voir l'exécution
-            </button>
-          </div>
-        </div>
-      )}
-
-      {showDonePopup && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
-          onClick={() => setShowDonePopup(false)}
-        >
-          <div
-            className="w-full max-w-sm card-surface rounded-2xl p-8 text-center shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {result?.execution_result === "error" ? (
-              <>
-                <div className="size-16 rounded-full bg-destructive/15 grid place-items-center mx-auto mb-4">
-                  <AlertCircle className="size-9 text-destructive" />
-                </div>
-                <h2 className="text-2xl font-bold mb-2">Exécution terminée</h2>
-                <p className="text-sm text-muted-foreground mb-6">
-                  Le script s'est terminé avec une erreur. Consultez la console pour les
-                  détails.
-                </p>
-              </>
-            ) : (
-              <>
-                <div className="size-16 rounded-full bg-success/15 grid place-items-center mx-auto mb-4">
-                  <CheckCircle2 className="size-9 text-success" />
-                </div>
-                <h2 className="text-2xl font-bold mb-2">Exécution terminée !</h2>
-                <p className="text-sm text-muted-foreground mb-6">
-                  Votre code s'est exécuté avec succès. Le résultat s'affiche dans la
-                  console.
-                </p>
-              </>
-            )}
-            <button
-              onClick={() => setShowDonePopup(false)}
-              className="w-full premium-gradient text-white font-semibold rounded-lg py-3 shadow-lg hover:opacity-95"
-            >
-              Voir le résultat
-            </button>
-          </div>
-        </div>
-      )}
     </AppShell>
+  );
+}
+
+/**
+ * Facture Lightning en attente, ancrée en haut à droite du navigateur plutôt
+ * que dans la console : reste visible (et se rouvre) tant que la session n'est
+ * pas payée, y compris après un rechargement de page (état restauré depuis
+ * localStorage par ExecutionPage).
+ */
+function InvoiceWidget({
+  invoice,
+  open,
+  onToggle,
+  copied,
+  onCopy,
+  checkingPayment,
+  onCheckPayment,
+}: {
+  invoice: InvoiceResult;
+  open: boolean;
+  onToggle: () => void;
+  copied: boolean;
+  onCopy: () => void;
+  checkingPayment: boolean;
+  onCheckPayment: () => void;
+}) {
+  return (
+    <div className="fixed top-4 right-4 z-50 w-[340px] max-w-[92vw]">
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center justify-between gap-2 card-surface rounded-xl px-4 py-3 shadow-lg border border-primary/30 hover:border-primary/50 transition"
+      >
+        <span className="flex items-center gap-2 text-sm font-semibold">
+          <Zap className="size-4 text-primary" />
+          Facture en attente — {invoice.amount_sats} sats
+        </span>
+        <ChevronDown
+          className={`size-4 text-muted-foreground shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      <div
+        className="overflow-hidden transition-all duration-300 ease-out origin-top"
+        style={{
+          maxHeight: open ? 560 : 0,
+          opacity: open ? 1 : 0,
+        }}
+      >
+        <div className="mt-2 card-surface rounded-xl p-4 shadow-lg border border-border space-y-3">
+          <div className="flex justify-center">
+            <div className="bg-white rounded-lg p-3">
+              <QRCodeSVG value={invoice.payment_request} size={180} level="M" />
+            </div>
+          </div>
+          <div className="relative">
+            <pre className="bg-input border border-border rounded-lg px-4 py-3 text-xs font-mono overflow-x-auto pr-12 whitespace-pre-wrap break-all">
+              {invoice.payment_request}
+            </pre>
+            <button
+              onClick={onCopy}
+              className="absolute top-2 right-2 p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground"
+              title="Copier"
+            >
+              {copied ? <Check className="size-4 text-success" /> : <Copy className="size-4" />}
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={onCheckPayment}
+              disabled={checkingPayment}
+              className="px-4 py-2 rounded-md premium-gradient text-white text-sm font-medium hover:opacity-95 disabled:opacity-60 inline-flex items-center gap-2"
+            >
+              {checkingPayment ? <Loader2 className="size-4 animate-spin" /> : null}
+              J'ai payé, vérifier
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Badge de preuve d'intégrité (voir PREUVE_INTEGRITE.txt) : la machine signe
+ * sha256(session_id + résultat) avec sa clé secp256k1, le backend recalcule
+ * ce hash et vérifie la signature à réception. Posé sur le coin de la sortie
+ * du code ; un clic ouvre le détail (hash/signature/clé publique, copiables)
+ * pour permettre à quiconque de re-vérifier soi-même, sans faire confiance
+ * au badge.
+ */
+function IntegrityBadge({ result }: { result: SessionResult }) {
+  const [open, setOpen] = useState(false);
+  const verified = result.result_verified === true;
+
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        title="Voir la preuve d'intégrité cryptographique"
+        className={`inline-flex items-center gap-1 rounded-full pl-1.5 pr-2 py-1 text-[10px] font-semibold border shadow-sm transition hover:scale-105 ${
+          verified
+            ? "bg-success text-success-foreground border-success/40"
+            : "bg-destructive text-destructive-foreground border-destructive/40"
+        }`}
+      >
+        {verified ? <Fingerprint className="size-3" /> : <ShieldAlert className="size-3" />}
+        {verified ? "Vérifié" : "Non vérifié"}
+      </button>
+
+      {open && (
+        <IntegrityProofModal result={result} verified={verified} onClose={() => setOpen(false)} />
+      )}
+    </>
+  );
+}
+
+function IntegrityProofModal({
+  result,
+  verified,
+  onClose,
+}: {
+  result: SessionResult;
+  verified: boolean;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md card-surface rounded-2xl p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between mb-5">
+          <div className="flex items-center gap-3">
+            <div
+              className={`size-10 rounded-full grid place-items-center shrink-0 ${
+                verified ? "bg-success/15" : "bg-destructive/15"
+              }`}
+            >
+              {verified ? (
+                <Fingerprint className="size-5 text-success" />
+              ) : (
+                <ShieldAlert className="size-5 text-destructive" />
+              )}
+            </div>
+            <div>
+              <h2 className="text-base font-bold leading-tight">Preuve d'intégrité</h2>
+              <p
+                className={`text-xs font-semibold ${verified ? "text-success" : "text-destructive"}`}
+              >
+                {verified ? "Signature vérifiée" : "Signature invalide ou manquante"}
+              </p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+            <X className="size-5" />
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          <ProofField label="Hash du résultat" value={result.result_hash} />
+          <ProofField label="Signature" value={result.result_signature} />
+          <ProofField label="Clé publique de la machine" value={result.machine_public_key} />
+        </div>
+
+        <p className="text-[11px] text-muted-foreground italic mt-4 pt-4 border-t border-border">
+          En cas de manque de confiance recalculez sha256(session_id + résultat) et vérifiez la
+          signature avec la clé publique ci-dessus — indépendamment de ce badge.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function ProofField({ label, value }: { label: string; value: string | null }) {
+  const [copied, setCopied] = useState(false);
+  if (!value) return null;
+
+  function copy() {
+    navigator.clipboard.writeText(value as string);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  return (
+    <div>
+      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+        {label}
+      </div>
+      <div className="relative">
+        <code className="block break-all font-mono text-[11px] bg-surface-2 border border-border rounded-lg p-2.5 pr-9">
+          {value}
+        </code>
+        <button
+          onClick={copy}
+          className="absolute top-1.5 right-1.5 p-1 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground"
+          title="Copier"
+        >
+          {copied ? <Check className="size-3.5 text-success" /> : <Copy className="size-3.5" />}
+        </button>
+      </div>
+    </div>
   );
 }
 

@@ -5,7 +5,6 @@ export {
   getPaymentStatus,
   getSessionResult,
   closeSession,
-  mockPay,
 } from "./sessions.api";
 export type {
   SessionStatus,

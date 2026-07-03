@@ -32,6 +32,7 @@ type Machine = {
   gpu: string | null;
   cpu: string | null;
   specs: Record<string, unknown> | null;
+  publicKey: string | null;
   premium?: boolean;
 };
 
@@ -55,6 +56,7 @@ function toViewMachine(m: MarketplaceMachine): Machine {
       "Localisation inconnue",
     gpu: m.gpu,
     cpu: m.cpu,
+    publicKey: m.public_key,
     specs:
       m.specs_json && typeof m.specs_json === "object"
         ? (m.specs_json as Record<string, unknown>)
@@ -211,20 +213,9 @@ function MarketplacePage() {
               onClick={(e) => e.stopPropagation()}
             >
               {/* HEADER */}
-              <div className="flex items-start justify-between mb-5">
-                <h2 className="text-xl font-semibold">Spécifications</h2>
-                <button
-                  onClick={() => setSelectedId(null)}
-                  className="text-muted-foreground hover:text-foreground"
-                >
-                  <X className="size-5" />
-                </button>
-              </div>
+          
 
               {/* IMAGE */}
-              <div className="aspect-video rounded-lg bg-input border border-border grid place-items-center mb-5">
-                <Server className="size-12 text-muted-foreground" strokeWidth={1.25} />
-              </div>
 
               <h3 className="text-2xl font-bold mb-2">{selected.name}</h3>
 
@@ -240,6 +231,21 @@ function MarketplacePage() {
                   <SpecRow key={r.label} k={r.label} v={r.value} />
                 ))}
               </div>
+
+              {selected.publicKey && (
+                <div className="rounded-lg border border-border bg-surface-2 p-4 mb-5">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                    Clé publique (preuve d'intégrité)
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mb-2">
+                    Notez-la avant de soumettre un job : elle sert à vérifier que le résultat
+                    reçu n'a pas été modifié en chemin.
+                  </p>
+                  <code className="block break-all font-mono text-[11px] bg-background/60 border border-border rounded p-2">
+                    {selected.publicKey}
+                  </code>
+                </div>
+              )}
 
               <div className="rounded-lg border border-primary/40 bg-primary/5 p-4 mb-4">
                 <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">

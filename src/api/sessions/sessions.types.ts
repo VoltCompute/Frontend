@@ -40,6 +40,12 @@ export type SessionResult = {
   error_message: string | null;
   started_at: string | null;
   finished_at: string | null;
+  /** Preuve d'intégrité (voir PREUVE_INTEGRITE.txt) : signature secp256k1 du
+   * résultat par la machine, vérifiée automatiquement par le backend. */
+  result_hash: string | null;
+  result_signature: string | null;
+  result_verified: boolean | null;
+  machine_public_key: string | null;
 };
 
 export type CloseResult = {

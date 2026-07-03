@@ -57,11 +57,3 @@ export async function closeSession(sessionId: number): Promise<CloseResult> {
   const { data } = await apiClient.post<CloseResult>(`/api/sessions/${sessionId}/close`);
   return data;
 }
-
-/**
- * DEV uniquement : simule un paiement Lightning instantané. Ne fonctionne que
- * si le backend tourne en mode mock LNbits (LNBITS_API_KEY vide) — renvoie 403 sinon.
- */
-export async function mockPay(sessionId: number): Promise<void> {
-  await apiClient.post(`/api/sessions/${sessionId}/mock-pay`);
-}

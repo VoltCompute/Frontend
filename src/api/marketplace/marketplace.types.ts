@@ -22,4 +22,7 @@ export type MarketplaceMachine = {
   gain_total_fait_avec: number;
   last_seen_at: string | null;
   specs_json: unknown;
+  /** Clé publique secp256k1 de la machine — preuve d'intégrité des résultats.
+   * À noter AVANT de soumettre un job (voir PREUVE_INTEGRITE.txt). */
+  public_key: string | null;
 };
