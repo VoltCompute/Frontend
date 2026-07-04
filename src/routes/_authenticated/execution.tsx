@@ -16,7 +16,7 @@ import {
   Zap,
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
-import { toast } from "sonner";
+import { notify } from "@/components/ui/notify";
 import { QRCodeSVG } from "qrcode.react";
 import {
   initSession,
@@ -104,7 +104,7 @@ function ExecutionPage() {
 
   function handleFile(file: File) {
     setSelectedFile(file);
-    toast.success(`Fichier sélectionné : ${file.name}`);
+    notify.success(`Fichier sélectionné : ${file.name}`);
   }
 
   function handleDrop(e: React.DragEvent) {
@@ -115,11 +115,11 @@ function ExecutionPage() {
 
   async function handleLancer() {
     if (!machineId) {
-      toast.error("Sélectionnez une machine depuis le marketplace.");
+      notify.error("Sélectionnez une machine depuis le marketplace.");
       return;
     }
     if (!selectedFile) {
-      toast.error("Veuillez sélectionner un fichier.");
+      notify.error("Veuillez sélectionner un fichier.");
       return;
     }
 
@@ -143,14 +143,14 @@ function ExecutionPage() {
     } catch (err) {
       const message = (err as ApiError).message || "Échec du lancement.";
       appendLog(`ERREUR : ${message}`);
-      toast.error(message);
+      notify.error(message);
       setPhase("error");
     }
   }
 
   // Transition unique déclenchée à la confirmation du paiement (auto ou manuel).
   function onPaymentConfirmed() {
-    toast.success("✅ Paiement réussi ! Exécution lancée sur la machine...");
+    notify.success("Paiement réussi ! Exécution lancée sur la machine...");
     appendLog("Paiement confirmé. Exécution lancée sur la machine...");
     setPhase("running");
   }
@@ -163,10 +163,10 @@ function ExecutionPage() {
       if (status.paid) {
         onPaymentConfirmed();
       } else {
-        toast.info("Paiement non détecté pour le moment.");
+        notify.info("Paiement non détecté pour le moment.");
       }
     } catch (err) {
-      toast.error((err as ApiError).message || "Échec de la vérification du paiement.");
+      notify.error((err as ApiError).message || "Échec de la vérification du paiement.");
     } finally {
       setCheckingPayment(false);
     }
@@ -253,9 +253,9 @@ function ExecutionPage() {
           );
           setPhase(r.status === "closed" ? "closed" : "completed");
           if (r.execution_result === "error") {
-            toast.error("Exécution terminée avec une erreur.");
+            notify.error("Exécution terminée avec une erreur.");
           } else {
-            toast.success("✅ Exécution terminée avec succès !");
+            notify.success("Exécution terminée avec succès !");
           }
         }
       } catch {
@@ -273,14 +273,14 @@ function ExecutionPage() {
     setClosing(true);
     try {
       await closeSession(sessionId);
-      toast.success(
+      notify.success(
         phase === "completed"
           ? "Session clôturée. Fonds versés au fournisseur."
           : "Exécution annulée et session clôturée.",
       );
       setPhase("closed");
     } catch (err) {
-      toast.error((err as ApiError).message || "Échec de la clôture.");
+      notify.error((err as ApiError).message || "Échec de la clôture.");
     } finally {
       setClosing(false);
     }

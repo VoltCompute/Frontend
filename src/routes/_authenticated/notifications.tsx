@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { CheckCircle, AlertTriangle, CreditCard, Info, Check, Trash2 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
-import { toast } from "sonner";
+import { notify } from "@/components/ui/notify";
 
 export const Route = createFileRoute("/_authenticated/notifications")({
   head: () => ({
@@ -50,7 +50,7 @@ function NotificationsPage() {
 
   function markAllRead() {
     setNotifs((prev) => prev.map((n) => ({ ...n, read: true })));
-    toast.success("Toutes les notifications marquées comme lues.");
+    notify.success("Toutes les notifications marquées comme lues.");
   }
 
   function markRead(id: number) {
@@ -64,7 +64,7 @@ function NotificationsPage() {
   function clearAll() {
     if (!window.confirm("Supprimer toutes les notifications ?")) return;
     setNotifs([]);
-    toast.success("Notifications supprimées.");
+    notify.success("Notifications supprimées.");
   }
 
   const filtered = notifs.filter((n) => {

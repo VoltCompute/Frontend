@@ -154,6 +154,11 @@
   100% { transform: scale(1.6); opacity: 0; }
 }
 
+@keyframes notify-progress {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
 /* Landing page */
 @keyframes float-blob {
   from { transform: translateY(0px) scale(1); }

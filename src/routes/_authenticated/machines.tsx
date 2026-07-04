@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Server, Plus, Trash2, CloudOff, X, Loader2, Copy, Check } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Switch } from "@/components/ui/switch";
-import { toast } from "sonner";
+import { notify } from "@/components/ui/notify";
 import { addMachine, deleteMachine, getMyMachines, toggleMachine } from "@/api/machines";
 import type { AddMachineResult, Machine } from "@/api/machines";
 import type { ApiError } from "@/api/types";
@@ -78,7 +78,7 @@ function MachinesPage() {
     e.preventDefault();
     const sessionPrice = Number(form.price_session);
     if (!form.name.trim() || !Number.isInteger(sessionPrice) || sessionPrice <= 0) {
-      toast.error(
+      notify.error(
         `Nom et tarif (un nombre entier de sats pour ${SESSION_DURATION_MIN} min) requis.`,
       );
       return;
@@ -95,9 +95,9 @@ function MachinesPage() {
       });
       setCreatedAgent(result);
       await loadMachines();
-      toast.success(`Machine "${form.name.trim()}" créée.`);
+      notify.success(`Machine "${form.name.trim()}" créée.`);
     } catch (err) {
-      toast.error((err as ApiError).message || "Échec de la création de la machine.");
+      notify.error((err as ApiError).message || "Échec de la création de la machine.");
     } finally {
       setAdding(false);
     }
@@ -114,7 +114,7 @@ function MachinesPage() {
         prev.map((x) => (x.machine_id === m.machine_id ? { ...x, status: result.new_status } : x)),
       );
     } catch (err) {
-      toast.error((err as ApiError).message || "Échec du changement de statut.");
+      notify.error((err as ApiError).message || "Échec du changement de statut.");
     } finally {
       setBusyId(null);
     }
@@ -126,9 +126,9 @@ function MachinesPage() {
     try {
       await deleteMachine(m.machine_id);
       setMachines((prev) => prev.filter((x) => x.machine_id !== m.machine_id));
-      toast.success("Machine supprimée.");
+      notify.success("Machine supprimée.");
     } catch (err) {
-      toast.error((err as ApiError).message || "Échec de la suppression.");
+      notify.error((err as ApiError).message || "Échec de la suppression.");
     } finally {
       setBusyId(null);
     }

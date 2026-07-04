@@ -1,14 +1,25 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { LogOut, Minus, Plus, Shield, Landmark, Gauge, X, Loader2 } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { LogOut, Minus, Plus, Shield, Landmark, Gauge, X, Loader2, TrendingUp } from "lucide-react";
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { formatDistanceToNow, format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { AppShell } from "@/components/AppShell";
-import { toast } from "sonner";
+import { notify } from "@/components/ui/notify";
 import { getStoredUser } from "@/api/auth";
-import { getTransactions, getWalletSummary, withdraw, getPlatformRevenue } from "@/api/wallet";
-import type { Transaction, PlatformRevenue } from "@/api/wallet";
+import { getTransactions, getWalletSummary, withdraw } from "@/api/wallet";
+import type { Transaction } from "@/api/wallet";
 import type { ApiError } from "@/api/types";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/components/ui/chart";
+
+const revenueChartConfig = {
+  sats: { label: "Revenus", color: "var(--success)" },
+} satisfies ChartConfig;
 
 export const Route = createFileRoute("/_authenticated/wallet")({
   head: () => ({
@@ -28,7 +39,6 @@ function WalletPage() {
 
   const [balance, setBalance] = useState<number | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [revenue, setRevenue] = useState<PlatformRevenue | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -54,10 +64,6 @@ function WalletPage() {
     } finally {
       setLoading(false);
     }
-    // Revenus plateforme : chargé séparément → n'impacte JAMAIS le portefeuille si ça échoue.
-    getPlatformRevenue()
-      .then(setRevenue)
-      .catch(() => setRevenue(null));
   }
 
   useEffect(() => {
@@ -75,27 +81,27 @@ function WalletPage() {
     if (!user) return;
     const amountSats = Number(amount);
     if (!invoice.trim()) {
-      toast.error("Veuillez entrer une facture Lightning.");
+      notify.error("Veuillez entrer une facture Lightning.");
       return;
     }
     if (!Number.isInteger(amountSats) || amountSats <= 0) {
-      toast.error("Montant invalide.");
+      notify.error("Montant invalide.");
       return;
     }
     if (balance !== null && amountSats > balance) {
-      toast.error(`Solde insuffisant (${balance} Sats disponibles).`);
+      notify.error(`Solde insuffisant (${balance} Sats disponibles).`);
       return;
     }
     setWithdrawing(true);
     try {
       await withdraw(user.user_id, amountSats, invoice.trim());
-      toast.success(`Retrait de ${amountSats} Sats initié avec succès !`);
+      notify.success(`Retrait de ${amountSats} Sats initié avec succès !`);
       setShowWithdraw(false);
       setInvoice("");
       setAmount("");
       await loadWallet();
     } catch (err) {
-      toast.error((err as ApiError).message || "Échec du retrait.");
+      notify.error((err as ApiError).message || "Échec du retrait.");
     } finally {
       setWithdrawing(false);
     }
@@ -112,6 +118,19 @@ function WalletPage() {
       else outSum += t.amount_sats;
     }
     return { in24h: inSum, out24h: outSum };
+  }, [transactions]);
+
+  // Revenus = gains ("earning") uniquement, agrégés par jour pour visualiser la variation.
+  const revenueHistory = useMemo(() => {
+    const byDay = new Map<string, number>();
+    for (const t of transactions) {
+      if (t.tx_type !== "earning" || t.amount_sats <= 0) continue;
+      const day = new Date(t.created_at).toISOString().slice(0, 10);
+      byDay.set(day, (byDay.get(day) ?? 0) + t.amount_sats);
+    }
+    return Array.from(byDay.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([day, sats]) => ({ day, sats }));
   }, [transactions]);
 
   const visibleTx = showAll ? transactions : transactions.slice(0, 4);
@@ -205,32 +224,76 @@ function WalletPage() {
         </div>
       </div>
 
-      {revenue && (
-        <div className="card-surface p-6 mb-5 border-primary/30">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div>
-              <div className="text-sm text-muted-foreground flex items-center gap-2">
-                <Landmark className="size-4 text-primary" /> Revenus plateforme · commission{" "}
-                {Math.round(revenue.commission_rate * 100)}%
-              </div>
-              <div className="mt-2 text-4xl font-bold premium-gradient-text">
-                {revenue.total_commission_sats.toLocaleString("fr-FR")} Sats
-              </div>
-              <div className="text-xs text-muted-foreground mt-1">
-                prélevés sur {revenue.session_count} session
-                {revenue.session_count > 1 ? "s" : ""} · volume total{" "}
-                {revenue.total_volume_sats.toLocaleString("fr-FR")} Sats
-              </div>
-            </div>
-            <div className="text-right">
-              <div className="text-sm text-muted-foreground">Reversé aux fournisseurs</div>
-              <div className="text-2xl font-bold text-success mt-1">
-                {revenue.total_net_to_providers_sats.toLocaleString("fr-FR")} Sats
-              </div>
-            </div>
-          </div>
+      <div className="card-surface p-6 mb-5">
+        <div className="flex items-center justify-between mb-1">
+          <h2 className="text-xl font-bold flex items-center gap-2">
+            <TrendingUp className="size-5 text-success" /> Évolution de vos revenus
+          </h2>
         </div>
-      )}
+        <p className="text-sm text-muted-foreground mb-5">
+          Gains quotidiens tirés de vos sessions louées.
+        </p>
+
+        {loading ? (
+          <div className="flex items-center justify-center gap-2 py-10 text-muted-foreground text-sm">
+            <Loader2 className="size-4 animate-spin" /> Chargement...
+          </div>
+        ) : revenueHistory.length === 0 ? (
+          <div className="text-center py-10 text-muted-foreground text-sm">
+            Pas encore de revenus enregistrés pour tracer une tendance.
+          </div>
+        ) : (
+          <ChartContainer config={revenueChartConfig} className="aspect-auto h-65 w-full">
+            <AreaChart data={revenueHistory} margin={{ left: 4, right: 12, top: 8, bottom: 0 }}>
+              <defs>
+                <linearGradient id="revenueFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="var(--color-sats)" stopOpacity={0.35} />
+                  <stop offset="95%" stopColor="var(--color-sats)" stopOpacity={0.02} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid vertical={false} strokeDasharray="3 3" />
+              <XAxis
+                dataKey="day"
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+                tickFormatter={(value: string) => format(new Date(value), "d MMM", { locale: fr })}
+              />
+              <YAxis
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+                width={56}
+                tickFormatter={(value: number) => value.toLocaleString("fr-FR")}
+              />
+              <ChartTooltip
+                content={
+                  <ChartTooltipContent
+                    labelFormatter={(value) => format(new Date(value), "d MMMM yyyy", { locale: fr })}
+                    formatter={(value) => (
+                      <div className="flex w-full flex-1 justify-between items-center leading-none">
+                        <span className="text-muted-foreground">Revenus</span>
+                        <span className="font-mono font-medium tabular-nums text-foreground">
+                          {Number(value).toLocaleString("fr-FR")} Sats
+                        </span>
+                      </div>
+                    )}
+                  />
+                }
+              />
+              <Area
+                type="monotone"
+                dataKey="sats"
+                stroke="var(--color-sats)"
+                strokeWidth={2}
+                fill="url(#revenueFill)"
+                dot={false}
+                activeDot={{ r: 4 }}
+              />
+            </AreaChart>
+          </ChartContainer>
+        )}
+      </div>
 
       <div className="card-surface p-6 mb-5">
         <div className="flex items-center justify-between mb-5">
